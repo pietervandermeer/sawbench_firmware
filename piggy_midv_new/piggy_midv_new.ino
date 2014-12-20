@@ -1,5 +1,5 @@
 // defining this leaves in all debug statements.. logically, only for debugging ;) if you leave it on it causes serious delays to the main loop!
-//#define DEBUG
+#define DEBUG
 
 #ifdef DEBUG
 #define debug(args...) Serial.print(args)
@@ -11,6 +11,7 @@
 
 #define CLEAR_TRANSIENTS 1
 #define DEMO_MODE 0 // FM modulation depth > 0 at startup
+#define VCF_CTRL 1
 
 #include <stdint.h>
 #include <Statemachine.h>
@@ -71,15 +72,17 @@ const int vco_ms_pwm = 3;           // most significant VCO pwm pin
 const int vco_ls_pwm = 5;           // least significant VCO pwm pin
 const int saw_vca_pwm = 6;          // envelope control (VCA) pwm pin, for saw signal
 const int vco_mode_input_pin = 7;
+const int vcf_pwm_pin = 10;
 
 Midi::Statemachine midi_sm(DEMO_MODE == 1 ? true : false);
 int32_t fm_amp;
 int8_t cosLut[] = {127,127,127,127,127,126,126,126,125,124,124,123,122,121,120,119,118,116,115,114,112,111,109,108,106,104,102,100,98,96,94,92,90,88,85,83,81,78,76,73,71,68,65,63,60,57,54,51,48,46,43,40,37,34,31,28,24,21,18,15,12,9,6,3,0,-3,-6,-9,-12,-15,-18,-21,-24,-28,-31,-34,-37,-40,-43,-46,-48,-51,-54,-57,-60,-63,-65,-68,-71,-73,-76,-78,-81,-83,-85,-88,-90,-92,-94,-96,-98,-100,-102,-104,-106,-108,-109,-111,-112,-114,-115,-116,-118,-119,-120,-121,-122,-123,-124,-124,-125,-126,-126,-126,-127,-127,-127,-127,-127,-127,-127,-127,-127,-126,-126,-126,-125,-124,-124,-123,-122,-121,-120,-119,-118,-116,-115,-114,-112,-111,-109,-108,-106,-104,-102,-100,-98,-96,-94,-92,-90,-88,-85,-83,-81,-78,-76,-73,-71,-68,-65,-63,-60,-57,-54,-51,-48,-46,-43,-40,-37,-34,-31,-28,-24,-21,-18,-15,-12,-9,-6,-3,0,3,6,9,12,15,18,21,24,28,31,34,37,40,43,46,48,51,54,57,60,63,65,68,71,73,76,78,81,83,85,88,90,92,94,96,98,100,102,104,106,108,109,111,112,114,115,116,118,119,120,121,122,123,124,124,125,126,126,126,127,127,127,127};
 SignalControl::FrequencyModulator fm(&micros, 230, 16000000/ADSR_TICKLEN/64);
-SignalControl::Envelope env(&micros, ADSR_TICKLEN*1000 /* adsr ticklen in us */, 64000000UL /* ticks per second */);
+SignalControl::Envelope envVca(&micros, ADSR_TICKLEN*1000 /* adsr ticklen in us */, 64000000UL /* ticks per second */);
+#if VCF_CTRL
+SignalControl::Envelope envVcf(&micros, ADSR_TICKLEN*1000 /* adsr ticklen in us */, 64000000UL /* ticks per second */);
+#endif
 Vco vco(vco_ms_pwm, vco_ls_pwm);
-
-
 
 //-------------------------------------------------------------------------------------------
 // electronics control
@@ -176,11 +179,6 @@ void setPwmFrequency(int pin, int divisor) {
   }
 }
 
-inline void write_vca(uint8_t amplitude)
-{
-  analogWrite(saw_vca_pwm, amplitude);
-}
-
 // the setup routine runs once when you press reset:
 //===============================================================
 void setup()  
@@ -189,44 +187,48 @@ void setup()
   debugln(".");
 
   fm.setLut(cosLut);
+
+  //led driver+lfo wave + pot state
+  //===================================================
+  LFO_state = 0;
+  LFO_buttonState = 0;
+  LFO_buttonCounter = 0;
+  LFO_button_is_on = 0;
+
+  POT_state = 0;
+  POT_buttonState = 0;
+  POT_buttonCounter = 0;
+  POT_button_is_on = 0;
   
-//led driver+lfo wave + pot state
-//===================================================
-LFO_state = 0;
-LFO_buttonState = 0;
-LFO_buttonCounter = 0;
-LFO_button_is_on = 0;
-
-POT_state = 0;
-POT_buttonState = 0;
-POT_buttonCounter = 0;
-POT_button_is_on = 0;
+  minimum_button_time = 120; //hold time for buttons
   
-minimum_button_time = 120; //hold time for buttons
-  
-pinMode(DS_PIN, OUTPUT);
-pinMode(SHCP_PIN, OUTPUT);
-pinMode(STCP_PIN, OUTPUT);
+  pinMode(DS_PIN, OUTPUT);
+  pinMode(SHCP_PIN, OUTPUT);
+  pinMode(STCP_PIN, OUTPUT);
 
-pinMode(LFO_BUTTON, INPUT_PULLUP);
+  pinMode(LFO_BUTTON, INPUT_PULLUP);
 
-pinMode(POT_BUTTON, INPUT_PULLUP);
+  pinMode(POT_BUTTON, INPUT_PULLUP);
 
-//POTS
-//========================================================
-pinMode(POT_4, INPUT);
-pinMode(POT_3, INPUT);
-pinMode(POT_2, INPUT);
-pinMode(POT_1, INPUT);
+  //POTS
+  //========================================================
+  pinMode(POT_4, INPUT);
+  pinMode(POT_3, INPUT);
+  pinMode(POT_2, INPUT);
+  pinMode(POT_1, INPUT);
 
-//========================================================
-for(int i = 0; i < 8; i++){
+  //========================================================
+  for(int i = 0; i < 8; i++){
     registers[i] = 0;
-}
+  }
   writeRegister(); //function for writing to shift register
 
   // declare pwm pins to be outputs:
   pinMode(saw_vca_pwm, OUTPUT);
+#if VCF_CTRL
+  pinMode(vcf_pwm_pin, OUTPUT);
+  setPwmFrequency(vcf_pwm_pin, 1);
+#endif
   //pinMode(13, INPUT);
   // Set pin PWM frequency to 62500 Hz (62500/1 = 62500)
   // Note that the base frequency for pins 5 and 6 is 62500 Hz
@@ -238,15 +240,18 @@ for(int i = 0; i < 8; i++){
   vco.setType(Vco::VCO_TYPE_PIGGY);
 
   // silence, i kill u
-  write_vca(0);
+  analogWrite(saw_vca_pwm, 0);
   
- //LFO 
+  //LFO 
   pinMode(LFOpin, OUTPUT);
   lfoCounter = 0;
   output = 0;
   setPwmFrequency(LFOpin, 1);
-  previousMillis - 0;
-  LFO_SPEED = 100;
+  lfoSpeed = 100;
+
+#ifdef DEBUG
+  pinMode(13, OUTPUT);
+#endif
 } 
 
 //--
@@ -266,20 +271,31 @@ void synth_set_pitch()
   // directly set up the pitch and volume
   fm.setFreq(( (uint32_t) synth_pitch * (uint32_t) midi_sm.effect1 )>>7, 16000000/ADSR_TICKLEN/64);
 
-  env.setAttack(midi_sm.attack_time);
-  env.setRelease(midi_sm.release_time);
-  env.setDecay(midi_sm.decay_time);
-  env.setSustainLevel(midi_sm.sustain_level);
-  //env.setSustainLevel(100);
-  //env.setAttack(5);
-  //env.setRelease(60);
+  // TODO: can be overridden by onboard controls
+  envVca.setAttack(midi_sm.attack_time);
+  envVca.setRelease(midi_sm.release_time);
+  envVca.setDecay(midi_sm.decay_time);
+  envVca.setSustainLevel(midi_sm.sustain_level);
+  //envVca.setSustainLevel(100);
+  //envVca.setAttack(5);
+  //envVca.setRelease(60);
+#if VCF_CTRL
+  // TODO: separate midi adsr for vcf..
+  envVcf.setAttack(midi_sm.attack_time);
+  envVcf.setRelease(midi_sm.release_time);
+  envVcf.setDecay(midi_sm.decay_time);
+  envVcf.setSustainLevel(midi_sm.sustain_level);
+#endif
 }
 
 //--
 
 uint32_t lastTickTime;
 uint16_t vca_amp, old_vca_amp;
-int16_t int_amp;
+
+uint16_t vcf_amp, old_vcf_amp;
+bool vcf_stop;
+
 uint16_t old_mod_pitch = 0;
 uint8_t old_active_key;
 uint16_t modulated_pitch;
@@ -288,12 +304,12 @@ uint16_t modulated_pitch;
 //===================================================
 void writeRegister()
 {
-digitalWrite(STCP_PIN, LOW);
+  digitalWrite(STCP_PIN, LOW);
   
-for (int i = 0; i < 8; i++){
-     digitalWrite(SHCP_PIN, LOW);
-     digitalWrite(DS_PIN, registers[i]);  
-     digitalWrite(SHCP_PIN, HIGH);
+  for (int i = 0; i < 8; i++){
+    digitalWrite(SHCP_PIN, LOW);
+    digitalWrite(DS_PIN, registers[i]);  
+    digitalWrite(SHCP_PIN, HIGH);
   }
   digitalWrite(STCP_PIN, HIGH);  
 }
@@ -303,12 +319,19 @@ for (int i = 0; i < 8; i++){
 //===================================================
 void loop()
 {
+  int16_t int_amp;
+
+#ifdef DEBUG
   // gpio timing
-// digitalWrite(13,1);
-  
+  digitalWrite(13,1);
+#endif
+
   // do the actual signal control first in order to eliminate jitter!
   vco.write(modulated_pitch);
-  write_vca((vca_amp*synth_velocity)>>8);
+  analogWrite(saw_vca_pwm, (vca_amp*synth_velocity)>>8);
+#if VCF_CTRL
+  analogWrite(vcf_pwm_pin, (vcf_amp*synth_velocity)>>8);
+#endif
 
   // handle midi state machine
   midi_sm.statemachine();
@@ -325,6 +348,7 @@ void loop()
   if (old_active_key != midi_sm.active_key)
   {
     debugln("active key!");
+    debugln(midi_sm.active_key);
   }
   old_active_key = midi_sm.active_key;
 
@@ -335,25 +359,36 @@ void loop()
   if (midi_sm.triggered)
     debugln("triggered");
 
-  // update envelope
-  env.Statemachine(midi_sm.triggered, midi_sm.stopped, int_amp);
-  vca_amp = int_amp >> env.precision;
+  bool vcf_trig = midi_sm.triggered;
+
+  // update VCA envelope
+  envVca.Statemachine(midi_sm.triggered, midi_sm.stopped, int_amp);
+  vca_amp = int_amp >> envVca.precision;
   if (vca_amp != old_vca_amp)
   {
     debug("vca = "); debugln(vca_amp);
   }
   old_vca_amp = vca_amp;
-
+#if VCF_CTRL
+  // update VCF envelope
+  envVcf.Statemachine(vcf_trig, vcf_stop, int_amp);
+  vcf_amp = int_amp >> envVcf.precision;
+  if (vcf_amp != old_vcf_amp)
+  {
+    debug("vcf = "); debugln(vcf_amp);
+  }
+  old_vcf_amp = vcf_amp;
+#endif
   // handle modulation
   fm_amp = midi_sm.effect1 ? (int32_t) fm.step() : 0;
   modulated_pitch =  ( ( ((fm_amp * (int32_t)synth_pitch)>>6) * (int32_t)(midi_sm.modulation_depth) ) >>8) + synth_pitch;
 #ifdef DEBUG
-//  if (modulated_pitch != old_mod_pitch)
-//  {
-//    debugln(modulated_pitch);
-//    debug("fm_amp="); debug(fm_amp); debug(" midi modulation depth="); debugln(midi_sm.modulation_depth);
-//    old_mod_pitch = modulated_pitch;
-//  }
+  if (modulated_pitch != old_mod_pitch)
+  {
+    debugln(modulated_pitch);
+    debug("fm_amp="); debug(fm_amp); debug(" midi modulation depth="); debugln(midi_sm.modulation_depth);
+    old_mod_pitch = modulated_pitch;
+  }
 #endif
 
   //LFO + KEYTRACK
@@ -390,8 +425,7 @@ void loop()
   if(LFO_buttonState == 0){
     LFO_button_is_on = 0;
     LFO_buttonCounter = 0; 
-   }
-   
+  }
    
   //POT STATES PART
   //===================================================  
@@ -404,19 +438,19 @@ void loop()
     POT_buttonCounter = millis();
   }
   if(POT_buttonState == 0 && (millis() - POT_buttonCounter) >= minimum_button_time && POT_button_is_on == 1)
-    { 
+  { 
     POT_state = ((POT_state + 1) % NUM_OF_POT_STATES);
     POT_button_is_on = 0;
     POT_buttonCounter = 0; 
-    }
+  }
   if(POT_buttonState  == 0)
-   {
+  {
     POT_button_is_on = 0;
     POT_buttonCounter = 0; 
-   }
+  }
    
-   switch(POT_state)
-   {
+  switch(POT_state)
+  {
      case 0: //ADSR 1 
        analogRead(POT_1);
        analogRead(POT_2);
@@ -439,7 +473,7 @@ void loop()
        lfoSpeed = (analogRead(POT_4) * state_multiply);
      break;
      
-   }
+  }
    
   //WRITE REGISTERS TO SHIFT REGISTER
   //===================================================  
@@ -475,8 +509,10 @@ void loop()
     writeRegister();
   }
 
+#ifdef DEBUG
   // gpio timing
-  //digitalWrite(13,0);
+  digitalWrite(13,0);
+#endif
 
   // 
   // wait until we get a precisely timed loop..
@@ -489,5 +525,4 @@ void loop()
   lastTickTime = tickTime;  
 
 }
-
 
