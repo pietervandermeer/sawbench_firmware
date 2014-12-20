@@ -1,0 +1,10 @@
+#include <math.h>
+#include <stdio.h>
+
+int main()
+{
+	int i;
+	for (i=0; i<256; i++)
+		printf("%d,", (int) (127.9 * cos( ((float) i * (2.*M_PI)) / (float) 256)) );
+	printf("\n");
+}
