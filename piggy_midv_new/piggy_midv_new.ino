@@ -21,18 +21,13 @@
 
 //LFO
 //===================================================
-  int counter;
-  int output;
-  unsigned long previousMillis;
-  unsigned long LFO_SPEED;
-  unsigned char state_multiply;
-  int SPEED_STEP;
-  int LED_clock = 0;
-  
-  unsigned long currentMillis = millis();
+unsigned long lfoCounter;
+unsigned long lfoSpeed;
+int output;
+unsigned char state_multiply;
+int LED_clock = 0;
+LFO LFO1;
 
-  LFO LFO1;
-  
 //PINS
 //===================================================
 const int LFOpin = 9;
@@ -247,7 +242,7 @@ for(int i = 0; i < 8; i++){
   
  //LFO 
   pinMode(LFOpin, OUTPUT);
-  counter = 0;
+  lfoCounter = 0;
   output = 0;
   setPwmFrequency(LFOpin, 1);
   previousMillis - 0;
@@ -309,7 +304,7 @@ for (int i = 0; i < 8; i++){
 void loop()
 {
   // gpio timing
- // digitalWrite(13,1);
+// digitalWrite(13,1);
   
   // do the actual signal control first in order to eliminate jitter!
   vco.write(modulated_pitch);
@@ -361,41 +356,22 @@ void loop()
 //  }
 #endif
 
-  // gpio timing
-  //digitalWrite(13,0);
-
-  uint32_t tickTime;
-  do {
-    tickTime = micros();
-  } while(tickTime - lastTickTime < ADSR_TICKLEN*1000UL);
-  lastTickTime = tickTime; 
-  
   //LFO + KEYTRACK
   //=====================================================
-  unsigned long currentMillis = millis();
-  
   if(LFO_state == 0){ //random state
-      state_multiply = 30;
-      SPEED_STEP = 1;
+    state_multiply = 30;
   }
   else{
     state_multiply = 1;
-    SPEED_STEP = 1; 
   }
-  
-  if(currentMillis - previousMillis > LFO_SPEED)
-  {
-  previousMillis = currentMillis; 
-  
-  output = LFO1.LFOout(LFO_state, (counter * SPEED_STEP));
+
+  // step through
+  output = LFO1.LFOout(LFO_state, lfoCounter/256);
   analogWrite(LFOpin, output);//(midi_sm.active_key * 2));
-  counter = ((counter + 1) % BUFFERSIZE); 
-
-}  
-
+  lfoCounter += lfoSpeed;
   
-//LED DRIVER + LFO WAVE + POT STATE
-//=====================================================
+  //LED DRIVER + LFO WAVE + POT STATE
+  //=====================================================
   //LFO PART
   //===================================================
   
@@ -460,17 +436,18 @@ void loop()
        analogRead(POT_1);
        analogRead(POT_2);
        analogRead(POT_3);
-       LFO_SPEED = (analogRead(POT_4) * state_multiply);
+       lfoSpeed = (analogRead(POT_4) * state_multiply);
      break;
      
    }
    
   //WRITE REGISTERS TO SHIFT REGISTER
   //===================================================  
-   for(int x = 0; x < 7; x++){
-     //LFO waves
-     //================================================
-     for(int x = 0; x < NUM_OF_LFO_WAVES; x++){
+  for(int x = 0; x < 7; x++)
+  {
+    //LFO waves
+    //================================================
+    for(int x = 0; x < NUM_OF_LFO_WAVES; x++){
        if(x == LFO_state){
         registers[x] = 1;      
        }
@@ -495,9 +472,22 @@ void loop()
      else
        registers[7] = 0; //LED on if LFO is high
   
-   writeRegister();
-   }
-  
+    writeRegister();
+  }
+
+  // gpio timing
+  //digitalWrite(13,0);
+
+  // 
+  // wait until we get a precisely timed loop..
+  //
+
+  uint32_t tickTime;
+  do {
+    tickTime = micros();
+  } while(tickTime - lastTickTime < ADSR_TICKLEN*1000UL);
+  lastTickTime = tickTime;  
+
 }
 
 
