@@ -1,5 +1,5 @@
 // defining this leaves in all debug statements.. logically, only for debugging ;) if you leave it on it causes serious delays to the main loop!
-#define DEBUG
+//#define DEBUG
 
 #ifdef DEBUG
 #define debug(args...) Serial.print(args)
@@ -11,6 +11,7 @@
 
 #define CLEAR_TRANSIENTS 1
 #define DEMO_MODE 0 // FM modulation depth > 0 at startup
+#define SAWBENCH_CONTROLS 1
 #define VCF_CTRL 1
 
 #include <stdint.h>
@@ -35,7 +36,7 @@ const int LFOpin = 9;
 const int DS_PIN = 8;     //Serial port input 74HC595
 const int SHCP_PIN = A4;   //Shift clock input 74HC595
 const int STCP_PIN = A5;   //storage clock input 74HC595
-const int LFO_BUTTON = 13;
+const int LFO_BUTTON = 11; // was 13, but wouldn't work with that on-board led connected to it. 
 const int POT_BUTTON = 12;
 
 const int POT_4 = A3; //R1 + R2 + ADSR_2_AMOUNT
@@ -207,8 +208,11 @@ void setup()
   pinMode(STCP_PIN, OUTPUT);
 
   pinMode(LFO_BUTTON, INPUT_PULLUP);
-
   pinMode(POT_BUTTON, INPUT_PULLUP);
+
+  // die
+  pinMode(11, OUTPUT);
+  digitalWrite(11, 0);
 
   //POTS
   //========================================================
@@ -249,9 +253,7 @@ void setup()
   setPwmFrequency(LFOpin, 1);
   lfoSpeed = 100;
 
-#ifdef DEBUG
   pinMode(13, OUTPUT);
-#endif
 } 
 
 //--
@@ -321,10 +323,8 @@ void loop()
 {
   int16_t int_amp;
 
-#ifdef DEBUG
   // gpio timing
   digitalWrite(13,1);
-#endif
 
   // do the actual signal control first in order to eliminate jitter!
   vco.write(modulated_pitch);
@@ -391,6 +391,7 @@ void loop()
   }
 #endif
 
+#if SAWBENCH_CONTROLS
   //LFO + KEYTRACK
   //=====================================================
   if(LFO_state == 0){ //random state
@@ -402,7 +403,7 @@ void loop()
 
   // step through
   output = LFO1.LFOout(LFO_state, lfoCounter/256);
-  analogWrite(LFOpin, output);//(midi_sm.active_key * 2));
+  analogWrite(LFOpin, output);
   lfoCounter += lfoSpeed;
   
   //LED DRIVER + LFO WAVE + POT STATE
@@ -448,7 +449,8 @@ void loop()
     POT_button_is_on = 0;
     POT_buttonCounter = 0; 
   }
-   
+
+#if 1
   switch(POT_state)
   {
      case 0: //ADSR 1 
@@ -456,7 +458,6 @@ void loop()
        analogRead(POT_2);
        analogRead(POT_3);
        analogRead(POT_4);
-     
      break;
      
      case 1: //ADSR 2
@@ -474,7 +475,8 @@ void loop()
      break;
      
   }
-   
+#endif
+
   //WRITE REGISTERS TO SHIFT REGISTER
   //===================================================  
   for(int x = 0; x < 7; x++)
@@ -499,20 +501,21 @@ void loop()
         registers[x+NUM_OF_LFO_WAVES] = 0;       
        }
      }
+#if 0
      //LFO clock indicating LED
      //================================================
      if(output > 128)
        registers[7] = 1; //LED on if LFO is high
      else
        registers[7] = 0; //LED on if LFO is high
-  
-    writeRegister();
+#endif  
   }
 
-#ifdef DEBUG
+  writeRegister();
+#endif
+
   // gpio timing
   digitalWrite(13,0);
-#endif
 
   // 
   // wait until we get a precisely timed loop..
