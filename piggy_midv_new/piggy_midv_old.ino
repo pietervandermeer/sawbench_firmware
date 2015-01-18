@@ -20,66 +20,60 @@
 #include <FrequencyModulator.h>
 #include <Vco.h>
 #include <PiggyLFO.h>
-#include <Buttonscroll.h>
-#include <Potstates.h>
-#include <Writeregisters.h>
-
-//Button + LED's
-//===================================================
-Writeregister writeregister1;
-
-Button buttonPOT;
-Button buttonLFO;
-
-Potstates POT1;
-Potstates POT2;
-Potstates POT3;
-Potstates POT4;
-
-int Pot1Value;
-int Pot2Value;
-int Pot3Value;
-int Pot4Value;
-
-unsigned char  potMax = 3;
-unsigned char  LFOmax = 4;
-unsigned char  pot_button_state;
-unsigned char  lfo_button_state;
-unsigned char  minimum_button_time;
-unsigned char pot_index;
-unsigned char  lfo_index;
 
 //LFO
 //===================================================
 unsigned long lfoCounter;
 unsigned long lfoSpeed;
-unsigned char lfoOutput;
+int output;
 unsigned char state_multiply;
+int LED_clock = 0;
 LFO LFO1;
 
 //PINS
 //===================================================
-const unsigned char LFOpin = 9;
-const unsigned char DS_PIN = writeregister1.ds_PIN;     // 8 Serial port input 74HC595
-const unsigned char SHCP_PIN = writeregister1.shcp_PIN; //A4 Shift clock input 74HC595
-const unsigned char STCP_PIN = writeregister1.stcp_PIN; //A5 storage clock input 74HC595
-const unsigned char LFO_BUTTON = 11; // was 13, but wouldn't work with that on-board led connected to it. 
-const unsigned char POT_BUTTON = 12;
+const int LFOpin = 9;
+const int DS_PIN = 8;     //Serial port input 74HC595
+const int SHCP_PIN = A4;   //Shift clock input 74HC595
+const int STCP_PIN = A5;   //storage clock input 74HC595
+const int LFO_BUTTON = 11; // was 13, but wouldn't work with that on-board led connected to it. 
+const int POT_BUTTON = 12;
 
-const unsigned char POT_4 = A3; //R1 + R2 + ADSR_2_AMOUNT
-const unsigned char POT_3 = A1; //S1 + S2 + ADSR_1_AMOUNT
-const unsigned char POT_2 = A2; //D1 + D2 + LFO_AMOUNT
-const unsigned char POT_1 = A0; //A1 + A2 + LFO_SPEED
+const int POT_4 = A3; //R1 + R2 + ADSR_2_AMOUNT
+const int POT_3 = A2; //S1 + S2 + ADSR_1_AMOUNT
+const int POT_2 = A1; //D1 + D2 + LFO_AMOUNT
+const int POT_1 = A0; //A1 + A2 + LFO_SPEED
+
+#define NUM_OF_LFO_WAVES 4
+#define NUM_OF_POT_STATES 3
+#define NUM_OF_LEDS 8
+
+//LFO WAVES
+//===================================================
+unsigned char LFO_state = 0;
+unsigned char LFO_buttonState = 0;
+unsigned long LFO_buttonCounter = 0;
+unsigned char LFO_button_is_on = 0;
+
+//POT STATES
+//===================================================
+unsigned char POT_state = 0;
+unsigned char POT_buttonState = 0;
+unsigned long POT_buttonCounter = 0;
+unsigned char POT_button_is_on = 0;
+  
+unsigned long minimum_button_time;
+unsigned char registers[8]; 
 //===================================================
 
 #define ADSR_TICKLEN 32 // ms/64
 
-const unsigned char midi_in_pin = 2;       // digital pin nr on which you can read the MIDI in signal
-const unsigned char vco_ms_pwm = 3;        // most significant VCO pwm pin
-const unsigned char vco_ls_pwm = 5;        // least significant VCO pwm pin
-const unsigned char saw_vca_pwm = 6;       // envelope control (VCA) pwm pin, for saw signal
-const unsigned char vco_mode_input_pin = 7;
-const unsigned char vcf_pwm_pin = 10;
+const int midi_in_pin = 2;       // digital pin nr on which you can read the MIDI in signal
+const int vco_ms_pwm = 3;           // most significant VCO pwm pin
+const int vco_ls_pwm = 5;           // least significant VCO pwm pin
+const int saw_vca_pwm = 6;          // envelope control (VCA) pwm pin, for saw signal
+const int vco_mode_input_pin = 7;
+const int vcf_pwm_pin = 10;
 
 Midi::Statemachine midi_sm(DEMO_MODE == 1 ? true : false);
 int32_t fm_amp;
@@ -194,6 +188,20 @@ void setup()
   debugln(".");
 
   fm.setLut(cosLut);
+
+  //led driver+lfo wave + pot state
+  //===================================================
+  LFO_state = 0;
+  LFO_buttonState = 0;
+  LFO_buttonCounter = 0;
+  LFO_button_is_on = 0;
+
+  POT_state = 0;
+  POT_buttonState = 0;
+  POT_buttonCounter = 0;
+  POT_button_is_on = 0;
+  
+  minimum_button_time = 120; //hold time for buttons
   
   pinMode(DS_PIN, OUTPUT);
   pinMode(SHCP_PIN, OUTPUT);
@@ -202,12 +210,22 @@ void setup()
   pinMode(LFO_BUTTON, INPUT_PULLUP);
   pinMode(POT_BUTTON, INPUT_PULLUP);
 
+  // die
+  pinMode(11, OUTPUT);
+  digitalWrite(11, 0);
+
   //POTS
   //========================================================
   pinMode(POT_4, INPUT);
   pinMode(POT_3, INPUT);
   pinMode(POT_2, INPUT);
   pinMode(POT_1, INPUT);
+
+  //========================================================
+  for(int i = 0; i < 8; i++){
+    registers[i] = 0;
+  }
+  writeRegister(); //function for writing to shift register
 
   // declare pwm pins to be outputs:
   pinMode(saw_vca_pwm, OUTPUT);
@@ -231,7 +249,7 @@ void setup()
   //LFO 
   pinMode(LFOpin, OUTPUT);
   lfoCounter = 0;
-  lfoOutput = 0;
+  output = 0;
   setPwmFrequency(LFOpin, 1);
   lfoSpeed = 100;
 
@@ -254,7 +272,7 @@ void synth_set_pitch()
 
   // directly set up the pitch and volume
   fm.setFreq(( (uint32_t) synth_pitch * (uint32_t) midi_sm.effect1 )>>7, 16000000/ADSR_TICKLEN/64);
-#if 0
+
   // TODO: can be overridden by onboard controls
   envVca.setAttack(midi_sm.attack_time);
   envVca.setRelease(midi_sm.release_time);
@@ -270,7 +288,6 @@ void synth_set_pitch()
   envVcf.setDecay(midi_sm.decay_time);
   envVcf.setSustainLevel(midi_sm.sustain_level);
 #endif
-#endif
 }
 
 //--
@@ -285,19 +302,29 @@ uint16_t old_mod_pitch = 0;
 uint8_t old_active_key;
 uint16_t modulated_pitch;
 
+//Write Register function
+//===================================================
+void writeRegister()
+{
+  digitalWrite(STCP_PIN, LOW);
+  
+  for (int i = 0; i < 8; i++){
+    digitalWrite(SHCP_PIN, LOW);
+    digitalWrite(DS_PIN, registers[i]);  
+    digitalWrite(SHCP_PIN, HIGH);
+  }
+  digitalWrite(STCP_PIN, HIGH);  
+}
+//===================================================
+
 // the loop routine runs over and over again forever:
 //===================================================
 void loop()
 {
-  
-  unsigned long currentMillis = millis();
-  
   int16_t int_amp;
 
-#ifdef DEBUG
   // gpio timing
   digitalWrite(13,1);
-#endif
 
   // do the actual signal control first in order to eliminate jitter!
   vco.write(modulated_pitch);
@@ -333,11 +360,7 @@ void loop()
     debugln("triggered");
 
   bool vcf_trig = midi_sm.triggered;
-  if (midi_sm.stopped)
-  {
-    vcf_stop = true;
-  }
-  
+
   // update VCA envelope
   envVca.Statemachine(midi_sm.triggered, midi_sm.stopped, int_amp);
   vca_amp = int_amp >> envVca.precision;
@@ -367,52 +390,11 @@ void loop()
     old_mod_pitch = modulated_pitch;
   }
 #endif
-  //BUTTON + LED'S
-  //=====================================================
-  
-Pot1Value = analogRead(POT_1);
-Pot2Value = analogRead(POT_2);
-Pot3Value = analogRead(POT_3);
-Pot4Value = analogRead(POT_4); 
-  
-pot_button_state = digitalRead(POT_BUTTON);
-lfo_button_state = digitalRead(LFO_BUTTON);
 
-pot_index = buttonPOT.ButtonScroll(potMax, pot_button_state, minimum_button_time);
-lfo_index = buttonLFO.ButtonScroll(LFOmax, lfo_button_state, minimum_button_time);
-
-writeregister1.LedWriter( 4, lfo_index, pot_index);
-
-switch(pot_index){
-  case 0:                                                                 //VCA         
-  envVca.setAttack(POT1.potStatesWrite(pot_index, Pot1Value) / 8);        //Attack
-  envVca.setDecay(POT2.potStatesWrite(pot_index, Pot2Value) / 8);         //DECAY
-  envVca.setSustainLevel(POT3.potStatesWrite(pot_index, Pot3Value) / 4);  //SUSTAIN
-  envVca.setRelease(POT4.potStatesWrite(pot_index, Pot4Value) / 8);       //RELEASE
-  break;
-  
-  case 1:                                                                 //VCF
-  envVcf.setAttack(POT1.potStatesWrite(pot_index, Pot1Value) / 8);        //Attack
-  envVcf.setDecay(POT2.potStatesWrite(pot_index, Pot2Value) / 8);         //DECAY
-  envVcf.setSustainLevel(POT3.potStatesWrite(pot_index, Pot3Value) / 4);  //SUSTAIN
-  envVcf.setRelease(POT4.potStatesWrite(pot_index, Pot4Value) / 8);       //RELEASE
-  break;
-  
-  case 2:
-  lfoSpeed = POT1.potStatesWrite(pot_index, Pot1Value);  //LFO_SPEED
-  if (lfoSpeed < 8)
-  {
-    lfoSpeed = 8;
-  }
-  POT2.potStatesWrite(pot_index, Pot2Value);  //LFO AMOUNT
-  POT3.potStatesWrite(pot_index, Pot3Value);  //ADSR1 AMOUNT
-  POT4.potStatesWrite(pot_index, Pot4Value);  //ADSR2 AMOUNT
-  break;
-}
-
+#if SAWBENCH_CONTROLS
   //LFO + KEYTRACK
   //=====================================================
-  if(lfo_index == 0){ //random state
+  if(LFO_state == 0){ //random state
     state_multiply = 30;
   }
   else{
@@ -420,15 +402,120 @@ switch(pot_index){
   }
 
   // step through
-  lfoOutput = LFO1.LFOout(lfo_index, lfoCounter/256);
-  analogWrite(LFOpin, lfoOutput);
+  output = LFO1.LFOout(LFO_state, lfoCounter/256);
+  analogWrite(LFOpin, output);
   lfoCounter += lfoSpeed;
+  
+  //LED DRIVER + LFO WAVE + POT STATE
   //=====================================================
+  //LFO PART
+  //===================================================
+  
+  LFO_buttonState = digitalRead(LFO_BUTTON);
+  
+  if(LFO_buttonState == 1 && LFO_button_is_on == 0){ //LFO button is pushed
+    LFO_button_is_on = 1;
+    LFO_buttonCounter = 0;
+    LFO_buttonCounter = millis();
+  }
+  if(LFO_buttonState == 0 && (millis() - LFO_buttonCounter) >= minimum_button_time && LFO_button_is_on == 1){ 
+    LFO_state = ((LFO_state + 1) % NUM_OF_LFO_WAVES);
+    LFO_button_is_on = 0;
+    LFO_buttonCounter = 0; 
+    }
+  if(LFO_buttonState == 0){
+    LFO_button_is_on = 0;
+    LFO_buttonCounter = 0; 
+  }
+   
+  //POT STATES PART
+  //===================================================  
+  POT_buttonState = digitalRead(POT_BUTTON);
+  
+  if(POT_buttonState  == 1 && POT_button_is_on == 0) 
+  {
+    POT_button_is_on = 1;
+    POT_buttonCounter = 0;
+    POT_buttonCounter = millis();
+  }
+  if(POT_buttonState == 0 && (millis() - POT_buttonCounter) >= minimum_button_time && POT_button_is_on == 1)
+  { 
+    POT_state = ((POT_state + 1) % NUM_OF_POT_STATES);
+    POT_button_is_on = 0;
+    POT_buttonCounter = 0; 
+  }
+  if(POT_buttonState  == 0)
+  {
+    POT_button_is_on = 0;
+    POT_buttonCounter = 0; 
+  }
 
-#ifdef DEBUG
+#if 1
+  switch(POT_state)
+  {
+     case 0: //ADSR 1 
+       analogRead(POT_1);
+       analogRead(POT_2);
+       analogRead(POT_3);
+       analogRead(POT_4);
+     break;
+     
+     case 1: //ADSR 2
+       analogRead(POT_1);
+       analogRead(POT_2);
+       analogRead(POT_3);
+       analogRead(POT_4);
+     break;
+     
+     case 2: //LFO SPEED + LFO AMOUNT + ADSR1 AMOUNT + ADSR2 AMOUNT
+       analogRead(POT_1);
+       analogRead(POT_2);
+       analogRead(POT_3);
+       lfoSpeed = (analogRead(POT_4) * state_multiply);
+     break;
+     
+  }
+#endif
+
+  //WRITE REGISTERS TO SHIFT REGISTER
+  //===================================================  
+  for(int x = 0; x < 7; x++)
+  {
+    //LFO waves
+    //================================================
+    for(int x = 0; x < NUM_OF_LFO_WAVES; x++){
+       if(x == LFO_state){
+        registers[x] = 1;      
+       }
+       else{
+        registers[x] = 0;       
+       }
+     }
+     //POT STATES
+     //================================================
+     for(int x = 0; x < NUM_OF_POT_STATES; x++){
+       if(x == POT_state){
+        registers[x+NUM_OF_LFO_WAVES] = 1;      
+       }
+       else{
+        registers[x+NUM_OF_LFO_WAVES] = 0;       
+       }
+     }
+#if 0
+     //LFO clock indicating LED
+     //================================================
+     if(output > 128)
+       registers[7] = 1; //LED on if LFO is high
+     else
+       registers[7] = 0; //LED on if LFO is high
+#endif  
+  }
+
+  writeRegister();
+#endif
+
   // gpio timing
   digitalWrite(13,0);
-#endif
 
   // 
   // wait until we get a precisely timed loop..
