@@ -9,6 +9,7 @@
 #define debugln(args...) 
 #endif
 
+#define BENCHMARK 1 // benchmark loop speed using pin 13..
 #define CLEAR_TRANSIENTS 1
 #define DEMO_MODE 0 // FM modulation depth > 0 at startup
 #define SAWBENCH_CONTROLS 1
@@ -27,6 +28,8 @@
 //Button + LED's
 //===================================================
 Writeregister writeregister1;
+
+int potToRead;
 
 Button buttonPOT;
 Button buttonLFO;
@@ -54,7 +57,6 @@ unsigned char  lfo_index;
 unsigned long lfoCounter;
 unsigned long lfoSpeed;
 unsigned char lfoOutput;
-unsigned char state_multiply;
 LFO LFO1;
 
 //PINS
@@ -235,6 +237,9 @@ void setup()
   setPwmFrequency(LFOpin, 1);
   lfoSpeed = 100;
 
+  // reading digitized potmeters round-robin
+  potToRead = 0;
+  
   pinMode(13, OUTPUT);
 } 
 
@@ -289,12 +294,9 @@ uint16_t modulated_pitch;
 //===================================================
 void loop()
 {
-  
-  unsigned long currentMillis = millis();
-  
   int16_t int_amp;
 
-#ifdef DEBUG
+#if BENCHMARK
   // gpio timing
   digitalWrite(13,1);
 #endif
@@ -369,54 +371,64 @@ void loop()
 #endif
   //BUTTON + LED'S
   //=====================================================
-  
-Pot1Value = analogRead(POT_1);
-Pot2Value = analogRead(POT_2);
-Pot3Value = analogRead(POT_3);
-Pot4Value = analogRead(POT_4); 
-  
-pot_button_state = digitalRead(POT_BUTTON);
-lfo_button_state = digitalRead(LFO_BUTTON);
 
-pot_index = buttonPOT.ButtonScroll(potMax, pot_button_state, minimum_button_time);
-lfo_index = buttonLFO.ButtonScroll(LFOmax, lfo_button_state, minimum_button_time);
-
-writeregister1.LedWriter( 4, lfo_index, pot_index);
-
-switch(pot_index){
-  case 0:                                                                 //VCA         
-  envVca.setAttack(POT1.potStatesWrite(pot_index, Pot1Value) / 8);        //Attack
-  envVca.setDecay(POT2.potStatesWrite(pot_index, Pot2Value) / 8);         //DECAY
-  envVca.setSustainLevel(POT3.potStatesWrite(pot_index, Pot3Value) / 4);  //SUSTAIN
-  envVca.setRelease(POT4.potStatesWrite(pot_index, Pot4Value) / 8);       //RELEASE
-  break;
-  
-  case 1:                                                                 //VCF
-  envVcf.setAttack(POT1.potStatesWrite(pot_index, Pot1Value) / 8);        //Attack
-  envVcf.setDecay(POT2.potStatesWrite(pot_index, Pot2Value) / 8);         //DECAY
-  envVcf.setSustainLevel(POT3.potStatesWrite(pot_index, Pot3Value) / 4);  //SUSTAIN
-  envVcf.setRelease(POT4.potStatesWrite(pot_index, Pot4Value) / 8);       //RELEASE
-  break;
-  
-  case 2:
-  lfoSpeed = POT1.potStatesWrite(pot_index, Pot1Value);  //LFO_SPEED
-  if (lfoSpeed < 8)
+  // round robin which pot to read, because analogRead() is very slow.. and we don't need to read out at 2 kHz.. 60 Hz is already ok.
+  switch(potToRead)
   {
-    lfoSpeed = 8;
+    case 0:
+    Pot1Value = analogRead(POT_1);
+    break;
+    case 1:
+    Pot2Value = analogRead(POT_2);
+    break;
+    case 2:
+    Pot3Value = analogRead(POT_3);
+    break;
+    case 3:
+    Pot4Value = analogRead(POT_4); 
+    break;
   }
-  POT2.potStatesWrite(pot_index, Pot2Value);  //LFO AMOUNT
-  POT3.potStatesWrite(pot_index, Pot3Value);  //ADSR1 AMOUNT
-  POT4.potStatesWrite(pot_index, Pot4Value);  //ADSR2 AMOUNT
-  break;
-}
-
-  //LFO + KEYTRACK
-  //=====================================================
-  if(lfo_index == 0){ //random state
-    state_multiply = 30;
+  
+  potToRead++; 
+  if (potToRead > 3)
+  {
+    potToRead = 0;
   }
-  else{
-    state_multiply = 1;
+    
+  pot_button_state = digitalRead(POT_BUTTON);
+  lfo_button_state = digitalRead(LFO_BUTTON);
+  
+  pot_index = buttonPOT.ButtonScroll(potMax, pot_button_state, minimum_button_time);
+  lfo_index = buttonLFO.ButtonScroll(LFOmax, lfo_button_state, minimum_button_time);
+  
+  writeregister1.LedWriter( 4, lfo_index, pot_index);
+  
+  switch(pot_index)
+  {
+    case 0:                                                                 //VCA         
+    envVca.setAttack(POT1.potStatesWrite(pot_index, Pot1Value) / 8);        //Attack
+    envVca.setDecay(POT2.potStatesWrite(pot_index, Pot2Value) / 8);         //DECAY
+    envVca.setSustainLevel(POT3.potStatesWrite(pot_index, Pot3Value) / 4);  //SUSTAIN
+    envVca.setRelease(POT4.potStatesWrite(pot_index, Pot4Value) / 8);       //RELEASE
+    break;
+    
+    case 1:                                                                 //VCF
+    envVcf.setAttack(POT1.potStatesWrite(pot_index, Pot1Value) / 8);        //Attack
+    envVcf.setDecay(POT2.potStatesWrite(pot_index, Pot2Value) / 8);         //DECAY
+    envVcf.setSustainLevel(POT3.potStatesWrite(pot_index, Pot3Value) / 4);  //SUSTAIN
+    envVcf.setRelease(POT4.potStatesWrite(pot_index, Pot4Value) / 8);       //RELEASE
+    break;
+    
+    case 2:
+    lfoSpeed = POT1.potStatesWrite(pot_index, Pot1Value);  //LFO_SPEED
+    if (lfoSpeed < 8)
+    {
+      lfoSpeed = 8;
+    }
+    POT2.potStatesWrite(pot_index, Pot2Value);  //LFO AMOUNT
+    POT3.potStatesWrite(pot_index, Pot3Value);  //ADSR1 AMOUNT
+    POT4.potStatesWrite(pot_index, Pot4Value);  //ADSR2 AMOUNT
+    break;
   }
 
   // step through
@@ -425,7 +437,7 @@ switch(pot_index){
   lfoCounter += lfoSpeed;
   //=====================================================
 
-#ifdef DEBUG
+#ifdef BENCHMARK
   // gpio timing
   digitalWrite(13,0);
 #endif
