@@ -32,7 +32,7 @@ class LFO
 		int LFOout(int wave, int index);	//output. wave: 0=S&H, 1=sine, 2=saw, 3=square
 			
 	private:
-
+		int lastIndex;
 		int output;						//output to PWM (int between 0-255)
 		unsigned long Xrand;
 

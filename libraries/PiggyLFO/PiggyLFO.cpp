@@ -799,10 +799,12 @@ int LFO::LFOout(int wave, int index){
 			{
 			case 0:
 			//Sample and hold				
-				Xrand = (Xrand>>(Xrand&31)) | (Xrand<<(32-(Xrand&31)));
-				Xrand += 7;
-
-	
+				if ((index&0x80) != (lastIndex&0x80))
+				{
+					Xrand = (Xrand>>(Xrand&31)) | (Xrand<<(32-(Xrand&31)));
+					Xrand += 7;
+					lastIndex = index;
+				}
 				output = Xrand % BUFFERSIZE;
 				break;	
 			case 1:
