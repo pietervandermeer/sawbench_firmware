@@ -146,8 +146,6 @@ public:
 
 	SimpleEnvelope();
 	~SimpleEnvelope();
-	void resetElapsed();
-	uint32_t getElapsed();
 	void run();
 	void setRelease(uint8_t release);
 	void setAttack(uint8_t attack);
@@ -160,7 +158,6 @@ public:
 	  return stepLut[i];
 	}
 
-	uint32_t ticksWaited;
 	int32_t output;
 	int32_t sustainLevel;
 	uint16_t attackStep;

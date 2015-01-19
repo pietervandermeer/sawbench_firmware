@@ -72,7 +72,7 @@ const unsigned char POT_2 = A2; //D1 + D2 + LFO_AMOUNT
 const unsigned char POT_1 = A0; //A1 + A2 + LFO_SPEED
 //===================================================
 
-#define ADSR_TICKLEN 32 // ms/64
+#define ADSR_TICKLEN 64 // ms/64
 
 const unsigned char midi_in_pin = 2;       // digital pin nr on which you can read the MIDI in signal
 const unsigned char vco_ms_pwm = 3;        // most significant VCO pwm pin

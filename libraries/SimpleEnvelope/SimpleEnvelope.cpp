@@ -1,13 +1,7 @@
 #include "SimpleEnvelope.h"
 
-inline void SimpleEnvelope::resetElapsed()
-{
-  ticksWaited = 0;
-}
-
 SimpleEnvelope::SimpleEnvelope()
 {
-  resetElapsed();
   adsrState = ADSR_STATE_DONE;
   setAttack(1);
   setRelease(1);
@@ -45,13 +39,11 @@ void SimpleEnvelope::stop()
   if (adsrState != ADSR_STATE_RELEASE && adsrState != ADSR_STATE_DONE)
   {
     adsrState = ADSR_STATE_RELEASE;
-    resetElapsed();
   }
 }
 
 void SimpleEnvelope::trigger()
 {
-  resetElapsed();
   adsrState = ADSR_STATE_ATTACK;
   output = 0;
 }
@@ -102,6 +94,5 @@ void SimpleEnvelope::run()
     output = 0;
   }
 
-  ticksWaited++;
 }
 
