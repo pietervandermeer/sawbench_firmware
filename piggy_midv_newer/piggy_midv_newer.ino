@@ -186,6 +186,56 @@ void setPwmFrequency(int pin, int divisor) {
   }
 }
 
+void setVcaAttack(int v)
+{
+  envVca.setAttack(v/8);
+}
+
+void setVcaRelease(int v)
+{
+  envVca.setRelease(v/8);
+}
+
+void setVcaDecay(int v)
+{
+  envVca.setDecay(v/8);
+}
+
+void setVcaSustainLevel(int v)
+{
+  envVca.setSustainLevel(v/4);
+}
+
+void setVcfAttack(int v)
+{
+  envVcf.setAttack(v/8);
+}
+
+void setVcfRelease(int v)
+{
+  envVcf.setRelease(v/8);
+}
+
+void setVcfDecay(int v)
+{
+  envVcf.setDecay(v/8);
+}
+
+void setVcfSustainLevel(int v)
+{
+  envVcf.setSustainLevel(v/4);
+}
+
+void setLfoSpeed(int v)
+{
+  lfoSpeed = v;
+  if (lfoSpeed < 8)
+  {
+    lfoSpeed = 8;
+  }
+}
+
+
 // the setup routine runs once when you press reset:
 //===============================================================
 void setup()  
@@ -234,6 +284,16 @@ void setup()
   lfoOutput = 0;
   setPwmFrequency(LFOpin, 1);
   lfoSpeed = 100;
+
+  POT1.registerCallback(0, setVcaAttack);
+  POT1.registerCallback(1, setVcfAttack);
+  POT1.registerCallback(2, setLfoSpeed);
+  POT2.registerCallback(0, setVcaDecay);
+  POT2.registerCallback(1, setVcfDecay);
+  POT3.registerCallback(0, setVcaSustainLevel);
+  POT3.registerCallback(1, setVcfSustainLevel);
+  POT4.registerCallback(0, setVcaRelease);
+  POT4.registerCallback(1, setVcfRelease);
 
   pinMode(13, OUTPUT);
 } 
@@ -385,14 +445,18 @@ void loop()
   {
     case 0:
     Pot1Value = analogRead(POT_1);
+    POT1.potStatesWrite(pot_index, Pot1Value);
     break;
     case 1:
     Pot2Value = analogRead(POT_2);
+    POT2.potStatesWrite(pot_index, Pot2Value);
     break;
     case 2:
+    POT3.potStatesWrite(pot_index, Pot3Value);
     Pot3Value = analogRead(POT_3);
     break;
     case 3:
+    POT4.potStatesWrite(pot_index, Pot4Value);
     Pot4Value = analogRead(POT_4); 
     break;
   }
@@ -403,35 +467,7 @@ void loop()
   pot_index = buttonPOT.ButtonScroll(potMax, pot_button_state, minimum_button_time);
   lfo_index = buttonLFO.ButtonScroll(LFOmax, lfo_button_state, minimum_button_time);
   
-  writeregister1.LedWriter( 4, lfo_index, pot_index);
-  
-  switch(pot_index)
-  {
-    case 0:                                                                 //VCA         
-    envVca.setAttack(POT1.potStatesWrite(pot_index, Pot1Value) / 8);        //Attack
-    envVca.setDecay(POT2.potStatesWrite(pot_index, Pot2Value) / 8);         //DECAY
-    envVca.setSustainLevel(POT3.potStatesWrite(pot_index, Pot3Value) / 4);  //SUSTAIN
-    envVca.setRelease(POT4.potStatesWrite(pot_index, Pot4Value) / 8);       //RELEASE
-    break;
-    
-    case 1:                                                                 //VCF
-    envVcf.setAttack(POT1.potStatesWrite(pot_index, Pot1Value) / 8);        //Attack
-    envVcf.setDecay(POT2.potStatesWrite(pot_index, Pot2Value) / 8);         //DECAY
-    envVcf.setSustainLevel(POT3.potStatesWrite(pot_index, Pot3Value) / 4);  //SUSTAIN
-    envVcf.setRelease(POT4.potStatesWrite(pot_index, Pot4Value) / 8);       //RELEASE
-    break;
-    
-    case 2:
-    lfoSpeed = POT1.potStatesWrite(pot_index, Pot1Value);  //LFO_SPEED
-    if (lfoSpeed < 8)
-    {
-      lfoSpeed = 8;
-    }
-    POT2.potStatesWrite(pot_index, Pot2Value);  //LFO AMOUNT
-    POT3.potStatesWrite(pot_index, Pot3Value);  //ADSR1 AMOUNT
-    POT4.potStatesWrite(pot_index, Pot4Value);  //ADSR2 AMOUNT
-    break;
-  }
+  writeregister1.LedWriter(4, lfo_index, pot_index);
 
   // step through
   lfoOutput = LFO1.LFOout(lfo_index, lfoCounter/256);
