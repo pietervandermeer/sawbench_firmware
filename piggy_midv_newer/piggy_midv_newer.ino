@@ -321,7 +321,7 @@ void midi_cc_callback(uint8_t cc, uint8_t val)
       envVcf.setRelease(val);
       break;
     case controlchange_ctl_lfo_speed:
-      lfoSpeed = val*2;
+      lfoSpeed = val*8;
       break;
     case controlchange_ctl_lfo_amount:
       lfoAmount = val*2;
