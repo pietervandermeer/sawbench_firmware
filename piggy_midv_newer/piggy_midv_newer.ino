@@ -9,7 +9,7 @@
 #define debugln(args...) 
 #endif
 
-#define BENCHMARK 0 // benchmark loop timing using pin 13..
+#define BENCHMARK 1 // benchmark loop timing using pin 13..
 #define CLEAR_TRANSIENTS 1
 #define SAWBENCH_CONTROLS 1
 
@@ -50,8 +50,8 @@ unsigned char  lfo_index;
 
 //LFO
 //===================================================
-unsigned long lfoCounter;
-unsigned long lfoSpeed;
+uint16_t lfoCounter;
+uint16_t lfoSpeed;
 unsigned char lfoOutput;
 LFO LFO1;
 
@@ -566,6 +566,7 @@ void loop()
 
   // step through
   lfoOutput = LFO1.LFOout(lfo_index, lfoCounter/256);
+  //Serial.print(lfoCounter/256, HEX); Serial.print(" "); Serial.println(lfoOutput, HEX);
   analogWrite(LFOpin, ((uint16_t) lfoOutput * (uint16_t) lfoAmount)/256);
   lfoCounter += lfoSpeed;
   //=====================================================

@@ -15,7 +15,8 @@ This class was made for a PWM output of an Arduino. The output should be RC filt
 #ifndef PIGGY_LFO_H
 #define PIGGY_LFO_H
 
-#include "math.h"
+#include <stdint.h>
+#include <math.h>
 
 #define BUFFERSIZE 256
 #define SAMPLERATE 1000.0
@@ -28,7 +29,7 @@ class LFO
 		LFO();
 		~LFO();
 
-		int LFOout(int wave, int index);	//output. wave: 0=S&H, 1=sine, 2=saw, 3=square
+		int LFOout(uint8_t wave, uint16_t index);	//output. wave: 0=S&H, 1=sine, 2=saw, 3=square
 			
 	private:
 		int lastIndex;

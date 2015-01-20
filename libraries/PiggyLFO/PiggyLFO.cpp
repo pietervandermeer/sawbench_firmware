@@ -794,7 +794,7 @@ LFO::~LFO(){
 
 //LFO output (main functie)
 //======================================================
-int LFO::LFOout(int wave, int index){
+int LFO::LFOout(uint8_t wave, uint16_t index){
 		switch(wave)
 			{
 			case 0:
