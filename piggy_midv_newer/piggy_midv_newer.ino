@@ -9,11 +9,9 @@
 #define debugln(args...) 
 #endif
 
-#define BENCHMARK 1 // benchmark loop speed using pin 13..
+#define BENCHMARK 0 // benchmark loop timing using pin 13..
 #define CLEAR_TRANSIENTS 1
-#define DEMO_MODE 0 // FM modulation depth > 0 at startup
 #define SAWBENCH_CONTROLS 1
-#define VCF_CTRL 1
 
 #include <stdint.h>
 #include <Statemachine.h>
@@ -81,14 +79,12 @@ const unsigned char saw_vca_pwm = 6;       // envelope control (VCA) pwm pin, fo
 const unsigned char vco_mode_input_pin = 7;
 const unsigned char vcf_pwm_pin = 10;
 
-Midi::Statemachine midi_sm(DEMO_MODE == 1 ? true : false);
+Midi::Statemachine midi_sm;
 int32_t fm_amp;
 int8_t cosLut[] = {127,127,127,127,127,126,126,126,125,124,124,123,122,121,120,119,118,116,115,114,112,111,109,108,106,104,102,100,98,96,94,92,90,88,85,83,81,78,76,73,71,68,65,63,60,57,54,51,48,46,43,40,37,34,31,28,24,21,18,15,12,9,6,3,0,-3,-6,-9,-12,-15,-18,-21,-24,-28,-31,-34,-37,-40,-43,-46,-48,-51,-54,-57,-60,-63,-65,-68,-71,-73,-76,-78,-81,-83,-85,-88,-90,-92,-94,-96,-98,-100,-102,-104,-106,-108,-109,-111,-112,-114,-115,-116,-118,-119,-120,-121,-122,-123,-124,-124,-125,-126,-126,-126,-127,-127,-127,-127,-127,-127,-127,-127,-127,-126,-126,-126,-125,-124,-124,-123,-122,-121,-120,-119,-118,-116,-115,-114,-112,-111,-109,-108,-106,-104,-102,-100,-98,-96,-94,-92,-90,-88,-85,-83,-81,-78,-76,-73,-71,-68,-65,-63,-60,-57,-54,-51,-48,-46,-43,-40,-37,-34,-31,-28,-24,-21,-18,-15,-12,-9,-6,-3,0,3,6,9,12,15,18,21,24,28,31,34,37,40,43,46,48,51,54,57,60,63,65,68,71,73,76,78,81,83,85,88,90,92,94,96,98,100,102,104,106,108,109,111,112,114,115,116,118,119,120,121,122,123,124,124,125,126,126,126,127,127,127,127};
 SignalControl::FrequencyModulator fm(&micros, 230, 16000000/ADSR_TICKLEN/64);
 SimpleEnvelope envVca;
-#if VCF_CTRL
 SimpleEnvelope envVcf;
-#endif
 Vco vco(vco_ms_pwm, vco_ls_pwm);
 
 //-------------------------------------------------------------------------------------------
@@ -235,6 +231,117 @@ void setLfoSpeed(int v)
   }
 }
 
+uint8_t lfoAmount = 0;
+
+void setLfoAmount(int v)
+{
+  lfoAmount = v/4;
+}
+
+uint8_t adsr1Amount=128, adsr2Amount = 128;
+
+void setAdsr1Amount(int v)
+{
+  adsr1Amount = v/4;
+}
+
+void setAdsr2Amount(int v)
+{
+  adsr2Amount = v/4;
+}
+
+typedef enum
+{
+ controlchange_ctl_bankchange=0
+,controlchange_ctl_modulation_wheel=1
+,controlchange_ctl_breath=2
+,controlchange_ctl_undef=3
+,controlchange_ctl_foot=4
+,controlchange_ctl_effect1=0x0C
+,controlchange_ctl_effect2=0x0D
+,controlchange_ctl_sustainpedal=0x40
+,controlchange_ctl_resonance=0x47
+,controlchange_ctl_release=0x48 // 72
+,controlchange_ctl_attack=0x49 // 73
+,controlchange_ctl_brightness=0x4A
+,controlchange_ctl_decay=0x4B // 75
+,controlchange_ctl_sustain=0x50 // 80
+,controlchange_ctl_vcf_release=0x54
+,controlchange_ctl_vcf_attack=0x51
+,controlchange_ctl_vcf_decay=0x52
+,controlchange_ctl_vcf_sustain=0x53
+,controlchange_ctl_lfo_speed=0x55
+,controlchange_ctl_lfo_amount=0x56
+,controlchange_ctl_adsr1_amount=0x57
+,controlchange_ctl_adsr2_amount=0x58
+,controlchange_ctl_vcf_tracking=0x59 // 89
+// TODO: more!
+} controlchange_controller_t;
+
+
+uint8_t modulation_depth, effect1 = 27, vcfTracking = 64;
+
+void midi_cc_callback(uint8_t cc, uint8_t val)
+{
+  debug("cc callback "); debug(cc); debugln(val);
+  switch ((controlchange_controller_t) cc)
+  {
+    case controlchange_ctl_modulation_wheel:
+      modulation_depth = val;
+      break;
+    case controlchange_ctl_effect1:
+      // modulation frequency scalar 127 = .99 , 0 = 0!
+      effect1 = val;
+      break;
+    case controlchange_ctl_brightness:
+      // TODO: overwrite
+      break;
+    case controlchange_ctl_attack:
+      envVca.setAttack(val);
+      break;
+    case controlchange_ctl_decay:
+      envVca.setDecay(val);
+      break;
+    case controlchange_ctl_sustain:
+      envVca.setSustainLevel(val*2);
+      break;
+    case controlchange_ctl_release:
+      envVca.setRelease(val);
+      break;
+    case controlchange_ctl_vcf_attack:
+      envVcf.setAttack(val);
+      break;
+    case controlchange_ctl_vcf_decay:
+      envVcf.setDecay(val);
+      break;
+    case controlchange_ctl_vcf_sustain:
+      envVcf.setSustainLevel(val*2);
+      break;
+    case controlchange_ctl_vcf_release:
+      envVcf.setRelease(val);
+      break;
+    case controlchange_ctl_lfo_speed:
+      lfoSpeed = val*2;
+      break;
+    case controlchange_ctl_lfo_amount:
+      lfoAmount = val*2;
+      break;
+    case controlchange_ctl_adsr1_amount:
+      adsr1Amount = val*2;
+      break;
+    case controlchange_ctl_adsr2_amount:
+      adsr2Amount = val*2;
+      break;
+    case controlchange_ctl_vcf_tracking:
+      vcfTracking = val;
+      break;
+    default:
+      break;
+  }
+}
+
+int16_t lfoLedError;
+bool lfoLed;
 
 // the setup routine runs once when you press reset:
 //===============================================================
@@ -261,10 +368,8 @@ void setup()
 
   // declare pwm pins to be outputs:
   pinMode(saw_vca_pwm, OUTPUT);
-#if VCF_CTRL
   pinMode(vcf_pwm_pin, OUTPUT);
   setPwmFrequency(vcf_pwm_pin, 1);
-#endif
   //pinMode(13, INPUT);
   // Set pin PWM frequency to 62500 Hz (62500/1 = 62500)
   // Note that the base frequency for pins 5 and 6 is 62500 Hz
@@ -285,16 +390,23 @@ void setup()
   setPwmFrequency(LFOpin, 1);
   lfoSpeed = 100;
 
+  midi_sm.register_cc_callback(midi_cc_callback);
+  
   POT1.registerCallback(0, setVcaAttack);
   POT1.registerCallback(1, setVcfAttack);
   POT1.registerCallback(2, setLfoSpeed);
   POT2.registerCallback(0, setVcaDecay);
   POT2.registerCallback(1, setVcfDecay);
+  POT2.registerCallback(2, setLfoAmount);
   POT3.registerCallback(0, setVcaSustainLevel);
   POT3.registerCallback(1, setVcfSustainLevel);
+  POT3.registerCallback(2, setAdsr1Amount);
   POT4.registerCallback(0, setVcaRelease);
   POT4.registerCallback(1, setVcfRelease);
+  POT4.registerCallback(2, setAdsr2Amount);
 
+  lfoLedError = 0;
+  
   pinMode(13, OUTPUT);
 } 
 
@@ -313,24 +425,7 @@ void synth_set_pitch()
   synth_pitch = pitch + pitch_bend;
 
   // directly set up the pitch and volume
-  fm.setFreq(( (uint32_t) synth_pitch * (uint32_t) midi_sm.effect1 )>>7, 16000000/ADSR_TICKLEN/64);
-#if 0
-  // TODO: can be overridden by onboard controls
-  envVca.setAttack(midi_sm.attack_time);
-  envVca.setRelease(midi_sm.release_time);
-  envVca.setDecay(midi_sm.decay_time);
-  envVca.setSustainLevel(midi_sm.sustain_level);
-  //envVca.setSustainLevel(100);
-  //envVca.setAttack(5);
-  //envVca.setRelease(60);
-#if VCF_CTRL
-  // TODO: separate midi adsr for vcf..
-  envVcf.setAttack(midi_sm.attack_time);
-  envVcf.setRelease(midi_sm.release_time);
-  envVcf.setDecay(midi_sm.decay_time);
-  envVcf.setSustainLevel(midi_sm.sustain_level);
-#endif
-#endif
+  fm.setFreq(( (uint32_t) synth_pitch * (uint32_t) effect1 )>>7, 16000000/ADSR_TICKLEN/64);
 }
 
 //--
@@ -357,16 +452,16 @@ void loop()
   // do the actual signal control first in order to eliminate jitter!
   vco.write(modulated_pitch);
   analogWrite(saw_vca_pwm, (vca_amp*synth_velocity)>>8);
-#if VCF_CTRL
-  analogWrite(vcf_pwm_pin, (vcf_amp*synth_velocity)>>8);
-#endif
+  analogWrite(vcf_pwm_pin, vcf_amp + ((midi_sm.active_key * (uint16_t) vcfTracking)/64) );
 
   // handle midi state machine
   midi_sm.statemachine();
 
-  // process midi state machine variables to synth variables
-  // TODO: callbacks may be better?
-  synth_velocity = ((uint16_t) (midi_sm.active_velocity))<<2;
+  // a = (m*v+b)^2, v: midi velocity, m = 1-b, b = 126/(127*sqrt(range))
+  synth_velocity = midi_sm.active_velocity+0x68;
+  synth_velocity *= synth_velocity;
+  synth_velocity = ((uint32_t) synth_velocity * (uint32_t) adsr1Amount) / 8192;
+
   // volume clipping
   if (synth_velocity > 255)
   {
@@ -414,26 +509,24 @@ void loop()
   }
   else
   {
-#if VCF_CTRL
     // update VCF envelope
     envVcf.run();
-    vcf_amp = envVcf.output >> envVcf.precision;
+    vcf_amp = ((envVcf.output >> envVcf.precision) * adsr2Amount) /256;
     if (vcf_amp != old_vcf_amp)
     {
       debug("vcf = "); debugln(vcf_amp);
     }
     old_vcf_amp = vcf_amp;
-#endif
   }
 
   // handle modulation
-  fm_amp = midi_sm.effect1 ? (int32_t) fm.step() : 0;
-  modulated_pitch =  ( ( ((fm_amp * (int32_t)synth_pitch)>>6) * (int32_t)(midi_sm.modulation_depth) ) >>8) + synth_pitch;
+  fm_amp = effect1 ? (int32_t) fm.step() : 0;
+  modulated_pitch =  ( ( ((fm_amp * (int32_t)synth_pitch)>>6) * (int32_t)(modulation_depth) ) >>8) + synth_pitch;
 #ifdef DEBUG
   if (modulated_pitch != old_mod_pitch)
   {
     debugln(modulated_pitch);
-    debug("fm_amp="); debug(fm_amp); debug(" midi modulation depth="); debugln(midi_sm.modulation_depth);
+    debug("fm_amp="); debug(fm_amp); debug(" midi modulation depth="); debugln(modulation_depth);
     old_mod_pitch = modulated_pitch;
   }
 #endif
@@ -467,11 +560,13 @@ void loop()
   pot_index = buttonPOT.ButtonScroll(potMax, pot_button_state, minimum_button_time);
   lfo_index = buttonLFO.ButtonScroll(LFOmax, lfo_button_state, minimum_button_time);
   
-  writeregister1.LedWriter(4, lfo_index, pot_index);
+  lfoLedError += lfoOutput - (lfoLed*256);
+  lfoLed = (lfoLedError >= 128);
+  writeregister1.LedWriter(4, lfo_index, pot_index, lfoLed);
 
   // step through
   lfoOutput = LFO1.LFOout(lfo_index, lfoCounter/256);
-  analogWrite(LFOpin, lfoOutput);
+  analogWrite(LFOpin, ((uint16_t) lfoOutput * (uint16_t) lfoAmount)/256);
   lfoCounter += lfoSpeed;
   //=====================================================
 

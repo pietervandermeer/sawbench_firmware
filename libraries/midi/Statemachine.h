@@ -56,11 +56,10 @@ namespace Midi
 class Statemachine
 {
 public:
-	Statemachine(bool demoMode) 
+	Statemachine() 
 	{
 		// TODO: all of this should be transferred to an observer.
 		chan = 0;
-		modulation_depth = demoMode ? 63 : 0; // halfway by default for demo (should be gentle enough)
 		// set initial state
 		//state_t state = state_idle;
 		state = state_note_on; //useful for the ht-700..
@@ -68,20 +67,16 @@ public:
 		// no note event initially
 		triggered = false;
 		stopped = false;
-		// relative modulation frequency
-		effect1 = 27; // pretty nice
 		//effect1 = 0; //FM=off
-		// ADSR set to short/medium ;)
-		attack_time = 3;
-		decay_time = 2;
-		sustain_level = 150;
-		release_time = 6;
 		// pitch bend centered
 		pitch_bend = 8192;
+		// disable CC observation callback by default. 
+		cc_callback = 0;
 	}
 
 	~Statemachine() {}
 
+	void register_cc_callback( void (*callback)(uint8_t, uint8_t) );
 	void note_on_statemachine();
 	void note_off_statemachine();
 	void pitchwheel_statemachine();
@@ -100,16 +95,12 @@ public:
 	uint8_t note_on_key; 
 	uint8_t active_velocity;
 	uint8_t controlchange_controller, controlchange_value; 
-	uint8_t modulation_depth;
-	uint8_t attack_time;
-	uint8_t release_time;
-	uint8_t sustain_level;
-	uint8_t decay_time;
 	bool triggered, stopped;
 	uint16_t pitch_bend;
-	uint8_t effect1;
 	uint8_t program;
 	uint8_t note_off_key, note_off_velocity;
+
+	void (*cc_callback)(uint8_t, uint8_t);
 
 	Uart uart;
 
@@ -177,25 +168,6 @@ private:
 	  controlchange_state_controller
 	 ,controlchange_state_value
 	} controlchange_state_t;
-
-	typedef enum
-	{
-	  controlchange_ctl_bankchange=0
-	 ,controlchange_ctl_modulation_wheel=1
-	 ,controlchange_ctl_breath=2
-	 ,controlchange_ctl_undef=3
-	 ,controlchange_ctl_foot=4
-	 ,controlchange_ctl_effect1=0x0C
-	 ,controlchange_ctl_effect2=0x0D
-	 ,controlchange_ctl_sustainpedal=0x40
-	 ,controlchange_ctl_resonance=0x47
-	 ,controlchange_ctl_release=0x48
-	 ,controlchange_ctl_attack=0x49
-	 ,controlchange_ctl_brightness=0x4A
-	 ,controlchange_ctl_decay=0x4B
-	 ,controlchange_ctl_sustain=0x50 // vendor specific, TODO: a better way must exist to handle send sustain level?
-	 // TODO: more!
-	} controlchange_controller_t;
 
 	pitchwheel_state_t pitchwheel_state;
 	controlchange_state_t controlchange_state;

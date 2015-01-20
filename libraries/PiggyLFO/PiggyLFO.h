@@ -14,7 +14,6 @@ This class was made for a PWM output of an Arduino. The output should be RC filt
 
 #ifndef PIGGY_LFO_H
 #define PIGGY_LFO_H
-#endif
 
 #include "math.h"
 
@@ -39,4 +38,4 @@ class LFO
 
 };
 
-
+#endif //PIGGY_LFO_H

@@ -22,7 +22,7 @@ class Writeregister
 		Writeregister();
 		~Writeregister();
 
-		void LedWriter(unsigned char numOfPotstates, unsigned char LFO_index, unsigned char	POT_index);
+		void LedWriter(unsigned char numOfPotstates, unsigned char LFO_index, unsigned char	POT_index, unsigned char lfo);
 
 		int ds_PIN;     //Serial port input 74HC595
 		int shcp_PIN;   //Shift clock input 74HC595

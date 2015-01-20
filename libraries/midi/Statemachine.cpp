@@ -3,6 +3,11 @@
 namespace Midi
 {
 
+void Statemachine::register_cc_callback( void (*callback)(uint8_t, uint8_t) )
+{
+  cc_callback = callback;
+}
+
 void Statemachine::note_on_statemachine()
 {
   debugln("Note on");
@@ -142,27 +147,9 @@ void Statemachine::controlchange_statemachine()
     {
       debugln("value");
       controlchange_value = midiByte;
-      switch (controlchange_controller)
+      if (cc_callback)
       {
-        case controlchange_ctl_modulation_wheel:
-          modulation_depth = controlchange_value;
-          break;
-        case controlchange_ctl_effect1:
-          // modulation frequency scalar 127 = .99 , 0 = 0!
-          effect1 = controlchange_value;
-          break;
-        case controlchange_ctl_attack:
-          attack_time = controlchange_value;
-          break;
-        case controlchange_ctl_decay:
-          decay_time = controlchange_value;
-          break;
-        case controlchange_ctl_sustain:
-          sustain_level = controlchange_value*2;
-          break;
-        case controlchange_ctl_release:
-          release_time = controlchange_value;
-          break;
+        cc_callback(controlchange_controller, controlchange_value);
       }
       controlchange_state = controlchange_state_controller;
     }

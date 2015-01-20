@@ -28,7 +28,7 @@
 // write register for LED
 //======================================================
 
-void	Writeregister::LedWriter(unsigned char numOfPotstates, unsigned char LFO_index, unsigned char POT_index)
+void	Writeregister::LedWriter(unsigned char numOfPotstates, unsigned char LFO_index, unsigned char POT_index, unsigned char lfo=0)
 			{
 				LFO_index += numOfPotstates;
 				
@@ -41,6 +41,7 @@ void	Writeregister::LedWriter(unsigned char numOfPotstates, unsigned char LFO_in
 						registers[x] = 0;       
 					 }
 				 }
+				 registers[0] = lfo;
 
 				//write to register
 					digitalWrite(stcp_PIN, LOW);
