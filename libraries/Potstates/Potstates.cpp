@@ -21,26 +21,16 @@ void Potstates::registerCallback(unsigned char index, void (*callbackPtr)(int))
 
 int	Potstates::potStatesWrite(unsigned char potState_index, int pot_value)
 {
-	//potMoved = 0;
-
- 	// char lastPotState_index = potState_index - 1;
- 	// if (lastPotState_index < 0)
- 	// {
- 	// 	lastPotState_index += 3;
- 	// }
-	// if (pot_value > (lastState[lastPotState_index] + tresholdPot) ||
-	// 	pot_value < (lastState[lastPotState_index] - tresholdPot) ) // || potMoved
-	if (pot_value > (new_pot_value[potState_index] + tresholdPot) ||
-		pot_value < (new_pot_value[potState_index] - tresholdPot) )
+	if (pot_value > (lastVal + tresholdPot) ||
+		pot_value < (lastVal - tresholdPot) )
 	{
 		new_pot_value[potState_index] = pot_value;
-		// potMoved = 1;
+		lastVal = pot_value;
 		if (callbacks[potState_index])
 		{
 			callbacks[potState_index](pot_value);
 		}
 	}
 
-	lastState[potState_index] = pot_value;
 	return new_pot_value[potState_index];
 }

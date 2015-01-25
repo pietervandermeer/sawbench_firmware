@@ -20,8 +20,7 @@ class Potstates
 	private:
 
 		unsigned char tresholdPot;	
-		int lastState[3];
+		int lastVal;
 		int new_pot_value[3];
-		unsigned char potMoved;
 		void (*callbacks[3])(int v);
 };
