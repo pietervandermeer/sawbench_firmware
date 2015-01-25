@@ -12,6 +12,7 @@
 #define BENCHMARK 1 // benchmark loop timing using pin 13..
 #define CLEAR_TRANSIENTS 1
 #define SAWBENCH_CONTROLS 1
+#define LFO_LED 1
 
 #include <stdint.h>
 #include <Statemachine.h>
@@ -559,9 +560,14 @@ void loop()
   
   pot_index = buttonPOT.ButtonScroll(potMax, pot_button_state, minimum_button_time);
   lfo_index = buttonLFO.ButtonScroll(LFOmax, lfo_button_state, minimum_button_time);
-  
+
+#if LFO_LED
   lfoLedError += lfoOutput - (lfoLed*256);
   lfoLed = (lfoLedError >= 128);
+#else
+  lfoLed = false;
+#endif
+
   writeregister1.LedWriter(4, lfo_index, pot_index, lfoLed);
 
   // step through
