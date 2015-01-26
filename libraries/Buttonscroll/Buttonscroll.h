@@ -31,9 +31,10 @@ class Button
 
 	unsigned char ButtonScroll(unsigned char maximum, unsigned char buttonread, unsigned char minButtonTime);
 
+			unsigned char scrollIndex;
+
 		private:
 
-			unsigned char scrollIndex;
 			unsigned char buttonState;
 			unsigned long buttonCounter;
 			unsigned char button_is_on;

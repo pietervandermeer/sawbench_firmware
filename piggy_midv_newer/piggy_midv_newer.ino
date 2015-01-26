@@ -41,8 +41,8 @@ int Pot2Value;
 int Pot3Value;
 int Pot4Value;
 
-unsigned char  potMax = 3;
-unsigned char  LFOmax = 4;
+unsigned char  potMax = 3; // nr of pot states
+unsigned char  LFOmax = 4; // nr of lfo waveforms
 unsigned char  pot_button_state;
 unsigned char  lfo_button_state;
 unsigned char  minimum_button_time;
@@ -276,6 +276,7 @@ typedef enum
 ,controlchange_ctl_adsr1_amount=0x57
 ,controlchange_ctl_adsr2_amount=0x58
 ,controlchange_ctl_vcf_tracking=0x59 // 89
+,controlchange_ctl_lfo_type=0x5A // 90
 // TODO: more!
 } controlchange_controller_t;
 
@@ -335,6 +336,13 @@ void midi_cc_callback(uint8_t cc, uint8_t val)
       break;
     case controlchange_ctl_vcf_tracking:
       vcfTracking = val;
+      break;
+    case controlchange_ctl_lfo_type:
+      if (val >= LFOmax)
+      {
+        val = LFOmax-1;
+      }
+      buttonLFO.scrollIndex = val;
       break;
     default:
       break;
