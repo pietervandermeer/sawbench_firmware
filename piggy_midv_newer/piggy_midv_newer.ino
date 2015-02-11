@@ -1,4 +1,4 @@
-// defining this leaves in all debug statements.. logically, only for debugging ;) if you leave it on it causes serious delays to the main loop!
+   // defining this leaves in all debug statements.. logically, only for debugging ;) if you leave it on it causes serious delays to the main loop!
 //#define DEBUG
 
 #ifdef DEBUG
@@ -386,8 +386,7 @@ void setup()
   setPwmFrequency(vco_ls_pwm, 1);
   setPwmFrequency(saw_vca_pwm, 1);
 
-  // standard piggy vco (saw-only)
-  vco.setType(Vco::VCO_TYPE_PIGGY);
+  vco.setType(Vco::VCO_TYPE_SAWBENCH);
 
   // silence, i kill u
   analogWrite(saw_vca_pwm, 0);
@@ -428,10 +427,11 @@ uint16_t synth_velocity;
 void synth_set_pitch()
 {
   long pitch_bend; //fixedpoint
-  pitch_bend = (long) (midi_sm.pitch_bend); // - 8192);
+  pitch_bend = (long) (midi_sm.pitch_bend)  - 8192;
   pitch_bend *= pitch;
   pitch_bend >>= 16;
-  synth_pitch = pitch + pitch_bend;
+  synth_pitch = pitch; // + pitch_bend;
+  debugln(synth_pitch);
 
   // directly set up the pitch and volume
   fm.setFreq(( (uint32_t) synth_pitch * (uint32_t) effect1 )>>7, 16000000/ADSR_TICKLEN/64);

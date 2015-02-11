@@ -34,7 +34,7 @@ public:
 	{
 		 VCO_TYPE_PIGGY      // saw only
 		,VCO_TYPE_SUPERPIGGY // saw and rectangle (manual pwm)
-		,VCO_TYPE_WARTHOG    // saw and rectangle (voltage controlled)
+		,VCO_TYPE_SAWBENCH   // saw only, but different offset
 	};
 
 	void setType(VcoType vcoType);
