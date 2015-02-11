@@ -1,4 +1,4 @@
-   // defining this leaves in all debug statements.. logically, only for debugging ;) if you leave it on it causes serious delays to the main loop!
+// defining this leaves in all debug statements.. logically, only for debugging ;) if you leave it on it causes serious delays to the main loop!
 //#define DEBUG
 
 #ifdef DEBUG
@@ -12,7 +12,6 @@
 #define BENCHMARK 1 // benchmark loop timing using pin 13..
 #define CLEAR_TRANSIENTS 1
 #define SAWBENCH_CONTROLS 1
-#define LFO_LED 1
 
 #include <stdint.h>
 #include <Statemachine.h>
@@ -27,9 +26,10 @@
 //Button + LED's
 //===================================================
 Writeregister writeregister1;
+uint32_t loopCount;
 
-Button buttonPOT;
-Button buttonLFO;
+Button buttonPOT(&loopCount);
+Button buttonLFO(&loopCount);
 
 Potstates POT1;
 Potstates POT2;
@@ -48,6 +48,7 @@ unsigned char  lfo_button_state;
 unsigned char  minimum_button_time;
 unsigned char pot_index;
 unsigned char  lfo_index;
+bool lfoLedEnabled = true;
 
 //LFO
 //===================================================
@@ -430,7 +431,7 @@ void synth_set_pitch()
   pitch_bend = (long) (midi_sm.pitch_bend)  - 8192;
   pitch_bend *= pitch;
   pitch_bend >>= 16;
-  synth_pitch = pitch; // + pitch_bend;
+  synth_pitch = pitch + pitch_bend;
   debugln(synth_pitch);
 
   // directly set up the pitch and volume
@@ -446,8 +447,6 @@ uint16_t vcf_amp, old_vcf_amp;
 uint16_t old_mod_pitch = 0;
 uint8_t old_active_key;
 uint16_t modulated_pitch;
-
-uint8_t loopCount = 0;
 
 // the loop routine runs over and over again forever:
 //===================================================
@@ -566,15 +565,29 @@ void loop()
   pot_button_state = digitalRead(POT_BUTTON);
   lfo_button_state = digitalRead(LFO_BUTTON);
   
-  pot_index = buttonPOT.ButtonScroll(potMax, pot_button_state, minimum_button_time);
-  lfo_index = buttonLFO.ButtonScroll(LFOmax, lfo_button_state, minimum_button_time);
+  unsigned char c;
+  if ((c = buttonPOT.ButtonScroll(potMax, pot_button_state, minimum_button_time)) != 255)
+  {
+    pot_index = c;
+  }
+  if ((c = buttonLFO.ButtonScroll(LFOmax, lfo_button_state, minimum_button_time)) == 255)
+  {
+    lfoLedEnabled = !lfoLedEnabled; 
+  }
+  else
+  {
+    lfo_index = c;
+  }
 
-#if LFO_LED
-  lfoLedError += lfoOutput - (lfoLed*256);
-  lfoLed = (lfoLedError >= 128);
-#else
-  lfoLed = false;
-#endif
+  if (lfoLedEnabled)
+  {
+    lfoLedError += lfoOutput - (lfoLed*256);
+    lfoLed = (lfoLedError >= 128);
+  }
+  else
+  {
+    lfoLed = false;
+  }
 
   writeregister1.LedWriter(4, lfo_index, pot_index, lfoLed);
 

@@ -26,15 +26,17 @@ class Button
 {
 		public:
 
-			Button();
+			Button(unsigned long* millisPtr);
 			~Button();
 
-	unsigned char ButtonScroll(unsigned char maximum, unsigned char buttonread, unsigned char minButtonTime);
+			unsigned char ButtonScroll(unsigned char maximum, unsigned char buttonread, unsigned char minButtonTime);
 
 			unsigned char scrollIndex;
 
 		private:
 
+			bool waitForRelease;
+			unsigned long* millisPtr;
 			unsigned char buttonState;
 			unsigned long buttonCounter;
 			unsigned char button_is_on;
