@@ -30,8 +30,6 @@ Uart::Uart()
   printf("time out counter = %d\n", TIMEOUT); 
 #else
   pinMode(MIDI_IN_PIN, INPUT);
-  pinMode(MIDI_OUT_PIN, OUTPUT);
-  PORTD |= 1<<MIDI_OUT_PIN; // midi thru = high per default
 #endif
   attach_interrupt();
   time2 = 0; // important for first time of uart interrupt!
@@ -104,16 +102,6 @@ inline void Uart::handle_bitflip__()
 //interrupts();
   // store old bit for next run
   unsigned char bit_ = digitalRead(MIDI_IN_PIN);
-
-  //digitalWrite(MIDI_OUT_PIN, bit_); // 
-  if (bit_)
-  {
-    PORTD |= 1<<MIDI_OUT_PIN;
-  }
-  else
-  {
-    PORTD &= ~(1<<MIDI_OUT_PIN);
-  }
 
   // record timing
   unsigned long time1 = time2;

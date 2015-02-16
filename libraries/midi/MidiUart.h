@@ -28,7 +28,6 @@
 namespace Midi
 {
 static const unsigned int MIDI_IN_PIN = 2;
-static const unsigned int MIDI_OUT_PIN = 4;
 static const unsigned int BUF_SIZE = 64; // power of two and max 256!
 static const unsigned int RUN_BUF_SIZE = 256; // power of two and max 256!
 static const unsigned int MICROS_PER_BIT = (1000000/31250); // exactly 32 usec

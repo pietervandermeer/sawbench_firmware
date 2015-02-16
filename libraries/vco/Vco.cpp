@@ -1,225 +1,141 @@
 
 #include <Vco.h>
 
-/*PROGMEM*/ const uint16_t freq_table[] =
+// linearized table..
+/*PROGMEM*/ uint16_t freq_table[] =
 {
-// theoretical linearization - taking into account saw discharge time
-37,
-44,
-51,
-59,
-67,
-76,
-85,
-95,
-105,
-116,
-128,
-140,
-153,
-167,
-182,
-197,
-214,
-231,
-249,
-269,
-290,
-312,
-335,
-360,
-386,
-413,
-443,
-474,
-507,
-542,
-579,
-618,
-659,
-703,
-750,
-799,
-852,
-907,
-966,
-1029,
-1095,
-1165,
-1239,
-1318,
-1402,
-1490,
-1584,
-1684,
-1790,
-1901,
-2017,
-2139,
-2266,
-2399,
-2538,
-2684,
-2838,
-3001,
-3172,
-3355,
-3549,
-3756,
-3977,
-4214,
-4469,
-4743,
-5036,
-5347,
-5677,
-6029,
-6402,
-6798,
-7220,
-7668,
-8145,
-8652,
-9191,
-9765,
-10377,
-11028,
-11721,
-12460,
-13248,
-14088,
-14984,
-15940,
-16961,
-18052,
-19219,
-20466,
-21801,
-23230,
-24762,
-26405,
-28168,
-30062,
-32098,
-34290,
-36651,
-39199,
-41950,
-44925,
-48148,
-51644,
-55442,
-59578,
-64089
-
-//   100 // C-1
-// , 106
-// , 112
-// , 118
-// , 126
-// , 133
-// , 141
-// , 149
-// , 158
-// , 168
-// , 178
-// , 188
-// , 200 // C0
-// , 212
-// , 224
-// , 238
-// , 252
-// , 267
-// , 283
-// , 300
-// , 318
-// , 336
-// , 357
-// , 378
-// , 400 // C1 - 32.703 Hz
-// , 424
-// , 450
-// , 476
-// , 505
-// , 535
-// , 567
-// , 601
-// , 637
-// , 675
-// , 715
-// , 758
-// , 803 // C2 - 65.406 Hz, 15.29 ms
-// , 851
-// , 902
-// , 956
-// , 1013
-// , 1074
-// , 1138
-// , 1206
-// , 1278
-// , 1355
-// , 1436
-// , 1522
-// , 1614
-// , 1711
-// , 1813
-// , 1922
-// , 2038
-// , 2161
-// , 2291
-// , 2429
-// , 2575
-// , 2731
-// , 2896
-// , 3071
-// , 3257
-// , 3454
-// , 3664
-// , 3886
-// , 4123
-// , 4374
-// , 4640
-// , 4924
-// , 5225
-// , 5545
-// , 5886
-// , 6248
-// , 6633
-// , 7042
-// , 7478
-// , 7942
-// , 8437
-// , 8963
-// , 9524
-// , 10122
-// , 10759
-// , 11439
-// , 12165
-// , 12940
-// , 13767
-// , 14652
-// , 15598
-// , 16610
-// , 17694
-// , 18855
-// , 20100
-// , 21436
-// , 22870
-// , 24413
-// , 26072
-// , 27860
-// , 29788
-// , 31869
-// , 34119
-// , 36555
-// , 39197
-// , 42066
-// , 45188
-// , 48593
-// , 52312
-// , 56386
-// , 60860
+#include "vcotable.h"
 };
+
+const uint16_t nrOctaves = 9;
+const uint16_t notesPerOctave = 2;
+const uint16_t nrCalibNotes = nrOctaves * notesPerOctave;
+const uint32_t maxCalibSamples = 1000000;
+
+// TODO pgm mem or generated directly
+const uint16_t dac_input[] = 
+{
+196,
+277,
+392,
+555,
+785,
+1110,
+1570,
+2220,
+3140,
+4440,
+6279,
+8880,
+12558,
+17760,
+25116,
+35519,
+50232,
+65535
+};
+
+float f_measured[18];
+
+void Vco::calibrate()
+{
+
+  //
+  // measure the frequencies of all input dac values..  
+  //
+
+  const int inputPin = 4;
+  pinMode(inputPin, INPUT);
+
+  pinMode(8,OUTPUT);
+  pinMode(A4,OUTPUT);
+  pinMode(A5,OUTPUT);
+  digitalWrite(8,0);
+  digitalWrite(A4,0);
+  digitalWrite(A5,0);
+
+  const uint16_t* dac_inputPtr;
+  dac_inputPtr = dac_input;
+  int i = 0;
+
+  for (uint16_t idx_octave = 0; idx_octave < nrOctaves; idx_octave++)
+  {
+    for (uint16_t idx_note = 0; idx_note < notesPerOctave; idx_note++)
+    {
+      // set dac value
+      uint16_t dacValue = (*dac_inputPtr++) - 79;
+      analogWrite(msPwmPin, (dacValue>>8)&0xFF);
+      analogWrite(lsPwmPin, dacValue&0xFF);
+
+      //delay(100); // unnecessary since we always measure between falling edges using the newly configured slope.
+
+      bool bit = PIND & 0b00010000; // arduino pin 4
+      //bool bit = PINB & 0b00000001; // arduino pin 8
+      bool lastBit = bit;
+      uint16_t edgesMeasured = 0; // = periods measured + 1
+      uint32_t startTime;
+      uint32_t lastEdge = 0;
+
+      // sample the thing at super high speed. don't store anything, just check for falling edges
+      for (uint32_t idx_sample = 0; idx_sample < maxCalibSamples; idx_sample++)
+      {
+        //bool sample = digitalRead(inputPin);
+        // optimized hardcoded
+        bit = PIND & 0b00010000; // arduino pin 4
+        //bit = PINB & 0b00000001; // arduino pin 8
+
+        if (!bit && lastBit && (idx_sample - lastEdge > 50) )
+        {
+          if (edgesMeasured == 0)
+          {
+            startTime = micros();
+          }
+          // falling edge!
+          edgesMeasured++;
+          lastEdge = idx_sample;
+          // the higher the octave the more periods we need to have to remain accurate.. micros() really adds an offset.. 
+          // also, we don't want this to take forever for the low octaves.. the user is waiting for the synth to boot.. 
+          if ((edgesMeasured > 128) || (edgesMeasured == (uint16_t) (1<<idx_octave)+32))
+          {
+            break;
+          }
+        }
+
+        lastBit = bit;
+      } // for sample
+
+      uint32_t elapsedTime = micros() - startTime;
+      uint32_t measuredPeriod = elapsedTime / (edgesMeasured - 1);
+      Serial.println(measuredPeriod);
+      f_measured[i++] = 64000000. / (float) measuredPeriod;
+//      Serial.print(elapsedTime); Serial.print("/"); Serial.println(edgesMeasured);
+
+    } // for note in octave
+  } // for octave
+
+  //
+  // now compute the piecewise linear dac->frequency response, and use this to generate the calibration table.
+  //
+
+  const int highest_note = 104;
+  int j = 0;
+  for (int i=12; i<highest_note; i++)
+  {
+    float f_synth = 8.1757989156 * pow(2.,i/12.); 
+    if (f_synth >= f_measured[j+1])
+    {
+      j++;
+    }
+    float df = f_measured[j+1] - f_measured[j];
+    float ddac = dac_input[j+1] - dac_input[j];
+    float f_frac = (f_synth - f_measured[j])/df;
+    float dac_synth_ = dac_input[j] + f_frac*ddac;
+    uint16_t dac_synth__ = (uint16_t) (dac_synth_ + 0.5);
+    Serial.println(dac_synth__);
+    freq_table[i] = dac_synth__;
+  }
+
+}
 
 // set the voltage that the LT1013 (IC1A) can get closest to GND. on piggy this is 5 mV (66), on superpigy 32 (2.5 mV)
 void Vco::setType(Vco::VcoType vcoType)
@@ -235,7 +151,7 @@ void Vco::setType(Vco::VcoType vcoType)
   }
   else if (vcoType == Vco::VCO_TYPE_SAWBENCH)
   {
-    inputOffset = 0;//79;
+    inputOffset = 79;
   }
 }
 

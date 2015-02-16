@@ -20,6 +20,7 @@ public:
 	}
 	~Vco() {}
 
+	void calibrate();
 	void write(uint16_t);
 	uint16_t getNotePitch(uint8_t midi_note);
 

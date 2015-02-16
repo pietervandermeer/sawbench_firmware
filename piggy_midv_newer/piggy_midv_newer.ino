@@ -360,6 +360,13 @@ void setup()
   Serial.begin(115200);
   debugln(".");
 
+  // Set pin PWM frequency to 62500 Hz (62500/1 = 62500)
+  // Note that the base frequency for pins 5 and 6 is 62500 Hz
+  setPwmFrequency(vco_ms_pwm, 1);
+  setPwmFrequency(vco_ls_pwm, 1);
+
+  vco.calibrate();
+
   fm.setLut(cosLut);
   
   pinMode(DS_PIN, OUTPUT);
@@ -381,10 +388,6 @@ void setup()
   pinMode(vcf_pwm_pin, OUTPUT);
   setPwmFrequency(vcf_pwm_pin, 1);
   //pinMode(13, INPUT);
-  // Set pin PWM frequency to 62500 Hz (62500/1 = 62500)
-  // Note that the base frequency for pins 5 and 6 is 62500 Hz
-  setPwmFrequency(vco_ms_pwm, 1);
-  setPwmFrequency(vco_ls_pwm, 1);
   setPwmFrequency(saw_vca_pwm, 1);
 
   vco.setType(Vco::VCO_TYPE_SAWBENCH);
