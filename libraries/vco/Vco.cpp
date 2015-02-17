@@ -74,7 +74,8 @@ void Vco::calibrate()
       bool lastBit = bit;
       uint16_t edgesMeasured = 0; // = periods measured + 1
       uint32_t startTime;
-      uint32_t lastEdge = 0;
+      uint32_t lastFalling = 0; // index of last falling edge
+      uint32_t lastRising = 0; // index of last rising edge
 
       // sample the thing at super high speed. don't store anything, just check for falling edges
       for (uint32_t idx_sample = 0; idx_sample < maxCalibSamples; idx_sample++)
@@ -84,21 +85,31 @@ void Vco::calibrate()
         bit = PIND & 0b00010000; // arduino pin 4
         //bit = PINB & 0b00000001; // arduino pin 8
 
-        if (!bit && lastBit && (idx_sample - lastEdge > 50) )
+        if (bit && !lastBit)
         {
-          if (edgesMeasured == 0)
+          // rising edge!
+          lastRising = idx_sample;
+        }
+
+        if (!bit && lastBit)
+        {
+          // this is a sanity check. a miniscule falling edge may also be present around the half of the slope.. (!)
+          if (idx_sample - lastRising > (1<<(11-idx_octave)))
           {
-            startTime = micros();
+            if (edgesMeasured == 0)
+            {
+              startTime = micros();
+            }
+            // falling edge!
+            edgesMeasured++;
+            // the higher the octave the more periods we need to have to remain accurate.. micros() really adds an offset.. 
+            // also, we don't want this to take forever for the low octaves.. the user is waiting for the synth to boot.. 
+            if ((edgesMeasured > 64) || (edgesMeasured == (uint16_t) (1<<idx_octave)+4))
+            {
+              break;
+            }
           }
-          // falling edge!
-          edgesMeasured++;
-          lastEdge = idx_sample;
-          // the higher the octave the more periods we need to have to remain accurate.. micros() really adds an offset.. 
-          // also, we don't want this to take forever for the low octaves.. the user is waiting for the synth to boot.. 
-          if ((edgesMeasured > 128) || (edgesMeasured == (uint16_t) (1<<idx_octave)+32))
-          {
-            break;
-          }
+          lastFalling = idx_sample;
         }
 
         lastBit = bit;
@@ -106,7 +117,7 @@ void Vco::calibrate()
 
       uint32_t elapsedTime = micros() - startTime;
       uint32_t measuredPeriod = elapsedTime / (edgesMeasured - 1);
-      Serial.println(measuredPeriod);
+      //Serial.println(measuredPeriod);
       f_measured[i++] = 64000000. / (float) measuredPeriod;
 //      Serial.print(elapsedTime); Serial.print("/"); Serial.println(edgesMeasured);
 
@@ -131,7 +142,7 @@ void Vco::calibrate()
     float f_frac = (f_synth - f_measured[j])/df;
     float dac_synth_ = dac_input[j] + f_frac*ddac;
     uint16_t dac_synth__ = (uint16_t) (dac_synth_ + 0.5);
-    Serial.println(dac_synth__);
+    //Serial.println(dac_synth__);
     freq_table[i] = dac_synth__;
   }
 

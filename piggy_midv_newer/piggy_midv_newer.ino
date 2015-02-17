@@ -28,8 +28,8 @@
 Writeregister writeregister1;
 uint32_t loopCount;
 
-Button buttonPOT(&loopCount);
-Button buttonLFO(&loopCount);
+Button buttonPOT(&loopCount, 0);
+Button buttonLFO(&loopCount, 1);
 
 Potstates POT1;
 Potstates POT2;
@@ -244,12 +244,12 @@ uint8_t adsr1Amount=128, adsr2Amount = 128;
 
 void setAdsr1Amount(int v)
 {
-  adsr1Amount = v/4;
+  adsr1Amount = v/8;
 }
 
 void setAdsr2Amount(int v)
 {
-  adsr2Amount = v/4;
+  adsr2Amount = v/8;
 }
 
 typedef enum
@@ -330,10 +330,10 @@ void midi_cc_callback(uint8_t cc, uint8_t val)
       lfoAmount = val*2;
       break;
     case controlchange_ctl_adsr1_amount:
-      adsr1Amount = val*2;
+      adsr1Amount = val;
       break;
     case controlchange_ctl_adsr2_amount:
-      adsr2Amount = val*2;
+      adsr2Amount = val;
       break;
     case controlchange_ctl_vcf_tracking:
       vcfTracking = val;
@@ -359,6 +359,25 @@ void setup()
 { 
   Serial.begin(115200);
   debugln(".");
+
+  //
+  // set parameter defaults
+  //
+
+  envVca.setAttack(0);
+  envVca.setDecay(0);
+  envVca.setSustainLevel(255);
+  envVca.setRelease(10);
+
+  envVcf.setAttack(0);
+  envVcf.setDecay(40);
+  envVcf.setSustainLevel(80);
+  envVcf.setRelease(10);
+
+  lfoSpeed = 8;
+  lfoAmount = 255;
+  adsr1Amount = 128;
+  adsr2Amount = 128;
 
   // Set pin PWM frequency to 62500 Hz (62500/1 = 62500)
   // Note that the base frequency for pins 5 and 6 is 62500 Hz

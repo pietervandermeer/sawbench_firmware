@@ -3,10 +3,10 @@
 
 //Constructor & Destructor
 //======================================================
-Button::Button(uint32_t* millisPtr)
+Button::Button(uint32_t* millisPtr, unsigned char initialScollIndex)
 {
 	this->millisPtr = millisPtr;
-	scrollIndex = 0;
+	scrollIndex = initialScollIndex;
 	buttonCounter = 0;
 	button_is_on = 0;
 }
