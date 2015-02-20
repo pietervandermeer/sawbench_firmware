@@ -47,13 +47,6 @@ void Vco::calibrate()
   const int inputPin = 4;
   pinMode(inputPin, INPUT);
 
-  pinMode(8,OUTPUT);
-  pinMode(A4,OUTPUT);
-  pinMode(A5,OUTPUT);
-  digitalWrite(8,0);
-  digitalWrite(A4,0);
-  digitalWrite(A5,0);
-
   const uint16_t* dac_inputPtr;
   dac_inputPtr = dac_input;
   int i = 0;
@@ -94,7 +87,7 @@ void Vco::calibrate()
         if (!bit && lastBit)
         {
           // this is a sanity check. a miniscule falling edge may also be present around the half of the slope.. (!)
-          if (idx_sample - lastRising > (1<<(11-idx_octave)))
+          if (idx_sample - lastRising > (1<<(9-idx_octave)))
           {
             if (edgesMeasured == 0)
             {
@@ -104,7 +97,7 @@ void Vco::calibrate()
             edgesMeasured++;
             // the higher the octave the more periods we need to have to remain accurate.. micros() really adds an offset.. 
             // also, we don't want this to take forever for the low octaves.. the user is waiting for the synth to boot.. 
-            if ((edgesMeasured > 64) || (edgesMeasured == (uint16_t) (1<<idx_octave)+4))
+            if ((edgesMeasured > 64) || (edgesMeasured == (uint16_t) (1<<idx_octave)+1))
             {
               break;
             }
@@ -117,9 +110,9 @@ void Vco::calibrate()
 
       uint32_t elapsedTime = micros() - startTime;
       uint32_t measuredPeriod = elapsedTime / (edgesMeasured - 1);
-      //Serial.println(measuredPeriod);
+//      Serial.println(measuredPeriod);
       f_measured[i++] = 64000000. / (float) measuredPeriod;
-//      Serial.print(elapsedTime); Serial.print("/"); Serial.println(edgesMeasured);
+      Serial.print(elapsedTime); Serial.print("/"); Serial.println(edgesMeasured);
 
     } // for note in octave
   } // for octave
@@ -142,7 +135,7 @@ void Vco::calibrate()
     float f_frac = (f_synth - f_measured[j])/df;
     float dac_synth_ = dac_input[j] + f_frac*ddac;
     uint16_t dac_synth__ = (uint16_t) (dac_synth_ + 0.5);
-    //Serial.println(dac_synth__);
+    Serial.println(dac_synth__);
     freq_table[i] = dac_synth__;
   }
 

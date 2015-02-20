@@ -379,6 +379,37 @@ void setup()
   adsr1Amount = 128;
   adsr2Amount = 128;
 
+  //
+  // initialize leds
+  //
+
+  pinMode(DS_PIN, OUTPUT);
+  pinMode(SHCP_PIN, OUTPUT);
+  pinMode(STCP_PIN, OUTPUT);
+
+  int del = 400;
+  for (int i=0; i<34; i++)
+  {
+    writeregister1.LedWriter(4, lfo_index, pot_index, lfoLed);
+    delay(del);
+    lfo_index++;
+    pot_index++;
+    if (lfo_index > 3)
+    {
+      lfo_index = 0;
+    }
+    if (pot_index > 2)
+    {
+      pot_index = 0;
+    }
+    del *= 4;
+    del /= 5;
+  }
+
+  //
+  // calibrate vco (TODO: integrate with blinking leds)
+  // 
+
   // Set pin PWM frequency to 62500 Hz (62500/1 = 62500)
   // Note that the base frequency for pins 5 and 6 is 62500 Hz
   setPwmFrequency(vco_ms_pwm, 1);
@@ -387,10 +418,6 @@ void setup()
   vco.calibrate();
 
   fm.setLut(cosLut);
-  
-  pinMode(DS_PIN, OUTPUT);
-  pinMode(SHCP_PIN, OUTPUT);
-  pinMode(STCP_PIN, OUTPUT);
 
   pinMode(LFO_BUTTON, INPUT_PULLUP);
   pinMode(POT_BUTTON, INPUT_PULLUP);
@@ -630,7 +657,6 @@ void loop()
   // 
   // wait until we get a precisely timed loop..
   //
-
   uint32_t tickTime;
   do {
     tickTime = micros();
