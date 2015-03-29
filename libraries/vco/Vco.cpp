@@ -44,7 +44,8 @@ void Vco::calibrate()
   // measure the frequencies of all input dac values..  
   //
 
-  const int inputPin = 4;
+//  const int inputPin = 4;  // v2 : patch wire
+  const int inputPin = A1; // v3 : onboard trace..
   pinMode(inputPin, INPUT);
 
   const uint16_t* dac_inputPtr;
@@ -62,7 +63,8 @@ void Vco::calibrate()
 
       //delay(100); // unnecessary since we always measure between falling edges using the newly configured slope.
 
-      bool bit = PIND & 0b00010000; // arduino pin 4
+      bool bit = PINC & 0b00000010; // arduino pin A1
+      //bool bit = PIND & 0b00010000; // arduino pin 4
       //bool bit = PINB & 0b00000001; // arduino pin 8
       bool lastBit = bit;
       uint16_t edgesMeasured = 0; // = periods measured + 1
@@ -75,7 +77,8 @@ void Vco::calibrate()
       {
         //bool sample = digitalRead(inputPin);
         // optimized hardcoded
-        bit = PIND & 0b00010000; // arduino pin 4
+        bit = PINC & 0b00000010; // arduino pin A1
+        //bit = PIND & 0b00010000; // arduino pin 4
         //bit = PINB & 0b00000001; // arduino pin 8
 
         if (bit && !lastBit)

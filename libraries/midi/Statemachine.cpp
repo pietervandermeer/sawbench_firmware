@@ -8,6 +8,11 @@ void Statemachine::register_cc_callback( void (*callback)(uint8_t, uint8_t) )
   cc_callback = callback;
 }
 
+void Statemachine::setLegatoMode(bool mode)
+{
+  legatoMode = mode;
+}
+
 void Statemachine::note_on_statemachine()
 {
   debugln("Note on");
@@ -32,17 +37,34 @@ void Statemachine::note_on_statemachine()
       uint8_t velocity = midiByte;
       note_on_state = note_on_state_key;
 
+      if (velocity == 0)
+      {
+        notesActive--;
+      }
+      else 
+      {
+        notesActive++;
+      }
+
       if (velocity == 0 && active_key == note_on_key)
       {
         // active note is deactivated.
         debugln("note stopped");
-        stopped = true;
+        // non-legato? -> always release.. otherwise in legato -> only release when this is the last note
+        if (!legatoMode || (notesActive == 0)) 
+        {
+          stopped = true;
+        }
       }
       else if (velocity)
       {
         // old note is deactivated or new note is activated, we should only handle the latter case!
         debugln("note triggered");
-        triggered = true;
+        // non-legato? -> always trigger.. otherwise in legato -> only trigger when this is the first note
+        if (!legatoMode || (notesActive == 1)) 
+        {
+          triggered = true;
+        }
         active_velocity = velocity;
         // remember currently playing key
         active_key = note_on_key;
@@ -81,8 +103,18 @@ void Statemachine::note_off_statemachine()
       note_off_velocity = midiByte;
       note_off_state = note_off_state_key;
 
+      notesActive--;
+
       // only set volume if the current playing midi should be turned off
-      if (active_key == note_off_key)
+      if (active_key == note_off_key) // TODO??
+      {
+        // non-legato? -> always release.. otherwise in legato -> only release when this is the last note
+        if (!legatoMode || (notesActive == 0)) 
+        {
+          stopped = true;
+        }
+      }
+      else if (legatoMode && (notesActive == 0))
       {
         stopped = true;
       }

@@ -14,9 +14,9 @@
 					registers[x] = 0;
 				}
 
-		 ds_PIN = 8;     //Serial port input 74HC595
-		 shcp_PIN = A4;   //Shift clock input 74HC595
-		 stcp_PIN = A5;   //storage clock input 74HC595 
+		 // ds_PIN = 8;     //Serial port input 74HC595
+		 // shcp_PIN = A4;   //Shift clock input 74HC595
+		 // stcp_PIN = A5;   //storage clock input 74HC595 
 
 		}
 

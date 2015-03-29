@@ -84,6 +84,7 @@ public:
 	void programchange_statemachine();
 	void statemachine();
 	void resetTriggerState();
+	void setLegatoMode(bool mode);
 
 	// public member, up for grabs. could be done with getters since they're read-only, but well.. maybe when i have time!
 
@@ -99,6 +100,8 @@ public:
 	uint16_t pitch_bend;
 	uint8_t program;
 	uint8_t note_off_key, note_off_velocity;
+	uint8_t notesActive;
+	bool legatoMode;
 
 	void (*cc_callback)(uint8_t, uint8_t);
 
