@@ -13,6 +13,11 @@ SimpleEnvelope::~SimpleEnvelope()
 {
 } 
 
+void SimpleEnvelope::setLooping(bool mode)
+{
+  loopMode = mode;
+}
+
 void SimpleEnvelope::setRelease(uint8_t release)
 {
   releaseStep = getStep(release);
@@ -46,6 +51,7 @@ void SimpleEnvelope::trigger()
 {
   adsrState = ADSR_STATE_ATTACK;
   output = 0;
+  itersDone = 0;
 }
 
 // determine envelope output from ticks waited
@@ -70,7 +76,14 @@ void SimpleEnvelope::run()
       }
       break;
     case ADSR_STATE_SUSTAIN:
-      output = sustainLevel;
+      if (loopMode && (itersDone > 0))
+      {
+        adsrState = ADSR_STATE_RELEASE;
+      }
+      else
+      {
+        output = sustainLevel;
+      }
       break;
     case ADSR_STATE_RELEASE:
       output -= releaseStep;
@@ -81,6 +94,11 @@ void SimpleEnvelope::run()
       break;
     case ADSR_STATE_DONE:
       output = 0;
+      if (loopMode)
+      {
+        adsrState = ADSR_STATE_ATTACK;
+        itersDone++;
+      }
       break;
   }
 

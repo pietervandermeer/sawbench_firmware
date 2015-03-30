@@ -7,6 +7,7 @@
 // envelope generation, including adsr and such
 //--
 
+// todo: program memory
 static const uint16_t stepLut[128] =
 {
 0xFFFF,
@@ -153,11 +154,14 @@ public:
 	void setSustainLevel(uint8_t sustain);
 	void trigger();
 	void stop();
+	void setLooping(bool mode);
 	inline uint16_t getStep(uint8_t i)
 	{
 	  return stepLut[i];
 	}
 
+	bool loopMode;
+	uint16_t itersDone;
 	int32_t output;
 	int32_t sustainLevel;
 	uint16_t attackStep;
