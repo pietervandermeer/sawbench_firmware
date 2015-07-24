@@ -82,7 +82,7 @@ public:
 	void pitchwheel_statemachine();
 	void controlchange_statemachine();
 	void programchange_statemachine();
-	void statemachine();
+	void run();
 	void resetTriggerState();
 	void setLegatoMode(bool mode);
 

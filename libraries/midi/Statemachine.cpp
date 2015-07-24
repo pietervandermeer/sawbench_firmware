@@ -204,74 +204,79 @@ void Statemachine::programchange_statemachine()
   program = midiByte;
 }
 
-void Statemachine::statemachine() 
+// read all MIDI bytes..  
+void Statemachine::run() 
 {
   // low-level.. get bytes
   uart.decode_runs();
-  // read next byte
-  short word_ = uart.read_byte();
-  if (word_ < 0)
-  {
-    //debugln(word_);
-    return;
-  }
-  debug("MIDI State = ");
-  debughexln(state);
-  debug("word_ = ");
-  debughexln(word_);
-  debug("cmd = ");
-  debughexln(word_ & 0xF8);
-  if (((unsigned char) word_ & (unsigned char) 0xF8) == 0xF8)
-  {
-    debugln("Change state!");
-    state = (state_t) word_;
-    new_state = true;
-    return;
-  }
-  else if ((unsigned char) word_ & 0x80)
-  {
-    state = (state_t) (word_ & 0xF0);
-    rcvd_chan = (unsigned char) word_ & 0x0F;
-    new_state = true;
-    return;
-  }
-  // and else.. it's just the usual data byte..
-  midiByte = word_;
-  
-  if (rcvd_chan != chan)
-  {
-    debugln("Not our midi channel!");
-    return;
-  }
 
-  switch (state) 
+  // read decoded bytes
+  while(1) 
   {
-    case state_idle:
-    break;
-    
-    case state_note_on:
-    note_on_statemachine();
-    break;
-
-    case state_note_off:
-    note_off_statemachine();
-    break;
-
-    case state_pitchwheel_change:
-    pitchwheel_statemachine();
-    break;
-
-    case state_controlchange:
-    controlchange_statemachine();
-    break;
-    
-    case state_programchange:
-    programchange_statemachine();
-    break;
-    
-    default:
-    debug("Unhandled MIDI state 0x");
+    short word_ = uart.read_byte();
+    if (word_ < 0)
+    {
+      //debugln(word_);
+      return;
+    }
+    debug("MIDI State = ");
     debughexln(state);
+    debug("word_ = ");
+    debughexln(word_);
+    debug("cmd = ");
+    debughexln(word_ & 0xF8);
+    if (((unsigned char) word_ & (unsigned char) 0xF8) == 0xF8)
+    {
+      debugln("Change state!");
+      state = (state_t) word_;
+      new_state = true;
+      return;
+    }
+    else if ((unsigned char) word_ & 0x80)
+    {
+      state = (state_t) (word_ & 0xF0);
+      rcvd_chan = (unsigned char) word_ & 0x0F;
+      new_state = true;
+      return;
+    }
+    // and else.. it's just the usual data byte..
+    midiByte = word_;
+    
+    if (rcvd_chan != chan)
+    {
+      debugln("Not our midi channel!");
+      return;
+    }
+
+    switch (state) 
+    {
+      case state_idle:
+      break;
+      
+      case state_note_on:
+      note_on_statemachine();
+      break;
+
+      case state_note_off:
+      note_off_statemachine();
+      break;
+
+      case state_pitchwheel_change:
+      pitchwheel_statemachine();
+      break;
+
+      case state_controlchange:
+      controlchange_statemachine();
+      break;
+      
+      case state_programchange:
+      programchange_statemachine();
+      break;
+      
+      default:
+      debug("Unhandled MIDI state 0x");
+      debughexln(state);
+    }
   }
 }
 

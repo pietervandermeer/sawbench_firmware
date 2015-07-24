@@ -1,3 +1,5 @@
+// Sawbench firmware main sketch. v1.1 
+
 // defining this leaves in all debug statements.. logically, only for debugging ;) if you leave it on it causes serious delays to the main loop!
 //#define DEBUG
 
@@ -531,7 +533,7 @@ void loop()
   analogWrite(vcf_pwm_pin, vcf_amp + ((midi_sm.active_key * (uint16_t) vcfTracking)/64) );
 
   // handle midi state machine
-  midi_sm.statemachine();
+  midi_sm.run();
 
   // a = (m*v+b)^2, v: midi velocity, m = 1-b, b = 126/(127*sqrt(range))
   synth_velocity = midi_sm.active_velocity+0x68;
