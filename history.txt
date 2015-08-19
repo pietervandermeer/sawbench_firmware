@@ -1,0 +1,4 @@
+v1.0 apr 2015, initial version
+
+v1.1 jul 2015, fixes midi buffer overflow, noticable with big bursts of data, for instance having a lot of automations in your DAW.. 
+

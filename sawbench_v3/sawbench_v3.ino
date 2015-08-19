@@ -585,6 +585,7 @@ void loop()
     envVcf.stop();
     midi_sm.stopped = false;
   }
+  
   //
   // update envelopes
   //
@@ -688,6 +689,7 @@ void loop()
   // 
   // wait until we get a precisely timed loop..
   //
+  
   uint32_t tickTime;
   do {
     tickTime = micros();
