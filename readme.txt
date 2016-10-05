@@ -1,6 +1,6 @@
 The Sawbench Synthesizer firmware.
 
-(c) Tasty Chips Electronics, 2014-2015
+(c) Tasty Chips Electronics, 2014-2016
 
 This code may be used to update your sawbench synth, using only an Arduino Uno 
 (10 euro from China). The easiest way of doing things is to: 
