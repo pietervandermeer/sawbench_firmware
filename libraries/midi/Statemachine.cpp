@@ -225,15 +225,24 @@ void Statemachine::run()
     debughexln(word_);
     debug("cmd = ");
     debughexln(word_ & 0xF8);
-    if (((unsigned char) word_ & (unsigned char) 0xF8) == 0xF8)
+    if (((uint8_t) word_ & (uint8_t) 0xF8) == 0xF8)
     {
       debugln("Change state!");
-      state = (state_t) word_;
-      new_state = true;
+      if (word_ >= 0xF8)
+      {
+        // for (int i=0; i<maxCcObservers; i++)
+        // {
+        //   if (ccObservers[i])
+        //   {
+        //     ccObservers[i]->handle_beat(word_);
+        //   }
+        // }
+      }
       return;
     }
     else if ((unsigned char) word_ & 0x80)
     {
+      // printf("%02X\r\n", word_);
       state = (state_t) (word_ & 0xF0);
       rcvd_chan = (unsigned char) word_ & 0x0F;
       new_state = true;
@@ -271,6 +280,9 @@ void Statemachine::run()
       
       case state_programchange:
       programchange_statemachine();
+      break;
+
+      case state_channel_pressure:
       break;
       
       default:

@@ -1,4 +1,4 @@
-// Sawbench firmware main sketch. v1.1 
+// Sawbench firmware main sketch. v1.2
 
 // defining this leaves in all debug statements.. logically, only for debugging ;) if you leave it on it causes serious delays to the main loop!
 //#define DEBUG
