@@ -283,6 +283,7 @@ typedef enum
 ,controlchange_ctl_glide_speed=0x5B // 91
 ,controlchange_ctl_legato=0x5C // 92
 ,controlchange_ctl_envloop=0x5D // 93
+,controlchange_ctl_explin=0x5E // 94
 // TODO: more!
 } controlchange_controller_t;
 
@@ -365,6 +366,10 @@ void midi_cc_callback(uint8_t cc, uint8_t val)
     case controlchange_ctl_envloop:
       envVcf.setLooping(val&2);
       envVca.setLooping(val&1);
+      break;
+    case controlchange_ctl_explin:
+      envVcf.setExpMode(val&2);
+      envVca.setExpMode(val&1);
       break;
     default:
       break;
@@ -591,7 +596,7 @@ void loop()
   //
 
   if (loopCount&1)
-  {  
+  {
     envVca.run();
     vca_amp = envVca.output >> envVca.precision;
     if (vca_amp != old_vca_amp)
